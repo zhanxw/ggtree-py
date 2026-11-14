@@ -1,0 +1,164 @@
+The Artistic License 2.0
+
+Copyright (c) 2014-2026 Guangchuang Yu (upstream R/Bioconductor ggtree authors)
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+Preamble
+
+This license establishes the terms under which a given free software
+Package may be copied, modified, distributed, and/or redistributed.
+The intent is that the Copyright Holder maintains some artistic
+control over the development of that Package while still keeping the
+Package available as open source and free software.
+
+You are always permitted to make arrangements wholly outside of this
+license directly with the Copyright Holder of a given Package.  If the
+terms of this license do not permit the full use that you propose to
+make of the Package, you should contact the Copyright Holder and seek
+a different licensing arrangement.
+
+Definitions
+
+    "Copyright Holder" means the individual(s) or organization(s)
+    named in the copyright notice for the entire Package.
+
+    "Contributor" means any party that has contributed code or other
+    material to the Package, in accordance with the Copyright Holder's
+    procedures.
+
+    "You" and "your" means any person who would like to copy,
+    distribute, or modify the Package.
+
+    "Package" means the collection of files distributed by the
+    Copyright Holder, and derivatives of that collection and/or
+    of those files. A given Package may consist of either the Standard
+    Version, or a Modified Version.
+
+    "Distribute" means providing a copy of the Package or making it
+    accessible to anyone else, or in the case of a company or
+    organization, to others outside of your company or organization.
+
+    "Distributor Fee" means any fee that you charge for Distributing
+    this Package or providing support for this Package to another
+    party.  It does not mean branding.
+
+    "Standard Version" refers to the Package if it has not been
+    modified, or has been modified only in ways explicitly requested
+    by the Copyright Holder.
+
+    "Modified Version" means the Package, when it has been changed,
+    and such changes were not explicitly requested by the Copyright
+    Holder.
+
+    "Original License" means this Artistic License as Distributed with
+    the Standard Version of the Package, in its current version or as
+    it may be modified by The Perl Foundation in the future.
+
+    "Source" form means the source code, documentation source, and
+    configuration files for the Package.
+
+    "Compiled" form means the compiled binary or object code or
+    executable, including generated binary files, generated
+    computer code, or translated or converted binary files.
+
+    "Application" means the problem solving program, application, or
+    other business function or application to which the Package is
+    linked.
+
+    "Aggregation" means a compilation of a number of separate
+    independent programs, not based on the Package, which are
+    not specifically written for the purpose of combining the Package
+    with the independent programs.
+
+    "Distribution" means the collection of files that constitute the
+    Package as it is distributed by you.
+
+    "Derivative Work" means any work derived from the Package,
+    either through copyright or contract.
+
+Permission for Use and Modification Without Distribution
+
+(1)  You are permitted to use the Standard Version and create and use
+Modified Versions for any purpose without restriction, provided that
+you do not Distribute the Modified Version.
+
+Permissions for Redistribution of the Standard Version
+
+(2)  You may Distribute verbatim copies of the Source form of the
+Standard Version of this Package in any medium without restriction,
+either gratis or for a Distributor Fee, provided that you duplicate
+all of the original copyright notices and associated disclaimers.  At
+your discretion, such binary files may be included under the conditions
+that you may Distribute them as provided in (3).
+
+Permissions for Redistribution of Modified Versions of the Source
+Form as a Standard Version
+
+(3)  You may Distribute any Modified Version in Source form under the
+conditions of section (2) above, provided that you include prominent
+notices stating how and when you changed the Package, and provided that
+the Modified Version is clearly distinguished from the Standard Version
+in one of the following ways:
+
+    (a)  make the Modified Version available as the Standard Version,
+         with the Modified Version clearly named, so that the User
+         can easily find the source of the Modified Version, and the
+         Package name and version number are clearly present.
+
+    (b)  make sure that the Modified Version has a different package
+         name than the Standard Version.
+
+    (c)  make sure that any non-Standard Version clearly carries a
+         different version number or name from the Standard Version.
+
+Permissions for Redistribution of Modified Versions of the Source
+Form as a Non-Standard Version
+
+(4)  You may Distribute any Modified Version in Source form without
+distinguishing it from the Standard Version as required by section (3)
+above, if you distribute the Modified Version exclusively in your own
+organization or company, and do not distribute it to anyone outside your
+organization or company.
+
+Permissions for Redistribution of Non-Source Forms of Modified Versions
+
+(5)  You may Distribute Non-Source Forms of a Modified Version
+provided that you do the following with each Non-Source Form:
+
+    (a)  do at least one of the following:
+
+         (i)   make the Source form of the Modified Version available
+               under the Original License, and include instructions on
+               how to acquire the Source form from the Copyright Holder;
+
+         (ii)  ensure that the Source form of the Modified Version is
+               made available under the Original License as provided
+               by the Copyright Holder;
+
+         (iii) make the Source form available from the same place
+               as the Non-Source Form;
+
+    (b)  keep intact all copyright notices and disclaimers;
+
+    (c)  clearly distinguish the Modified Version from the Standard
+         Version.
+
+Permissions for Aggregation
+
+(6)  You may Aggregate the Package with other independent programs
+and distribute the Aggregation provided that you do not state or imply
+that the Package is your own, or that the Aggregation is your own.
+
+Permissions for Linking
+
+(7)  You may link the Package with other files to produce an
+Application, and distribute the Application without restriction under
+the terms of this license.
+
+Disclaimer of Warranty
+
+(8)  THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR
+IMPLIED WARRANTIES.  INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.

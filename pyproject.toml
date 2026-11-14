@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ggtree-py"
+version = "0.1.0"
+description = "Grammar of Graphics for Phylogenetic Trees in Python — an R-compatible port of Bioconductor ggtree."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Artistic-2.0"
+authors = [
+    {name = "Guangchuang Yu"},
+    {name = "Tommy Tsan-Yuk Lam"},
+    {name = "Shuangbin Xu"},
+]
+keywords = [
+    "phylogenetics",
+    "phylogeny",
+    "tree-visualization",
+    "ggtree",
+    "ggplot2",
+    "bioinformatics",
+    "evolution",
+    "newick",
+    "beast",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "numpy>=1.22",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://yulab-smu.top/treedata-book/"
+Upstream = "https://github.com/YuLab-SMU/ggtree"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ggtree"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/ggtree",
+    "/docs",
+    "/examples/run_all_examples.py",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/CONDUCT.md",
+]
