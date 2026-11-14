@@ -1,6 +1,8 @@
 # `ggtree-py` Documentation
 
-Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.0`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
+Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.1`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
+
+[**GitHub Repository**](https://github.com/zhanxw/ggtree.py) · [**PyPI Package**](https://pypi.org/project/ggtree-py/) · [**Upstream R ggtree**](https://github.com/YuLab-SMU/ggtree)
 
 ## Guides
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 (2026-11-14)
+
+- **Hosted documentation & links**: Created public GitHub repository (`https://github.com/zhanxw/ggtree.py`) and GitHub Pages documentation site (`https://zhanxw.github.io/ggtree.py/`).
+- **PyPI metadata & README links**: Replaced relative `docs/*.md`, `LICENSE`, and `CONDUCT.md` links with absolute GitHub Pages and GitHub URLs, and added `Homepage`, `Documentation`, `Repository`, `Issues`, `Changelog`, and `Upstream` URLs to `pyproject.toml`.
+
 ## 0.1.0 (2026-11-14)
 
 Initial Python release (`ggtree-py`, imported as `ggtree`), ported from Bioconductor `ggtree` (`4.3.2`).

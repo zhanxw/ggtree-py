@@ -5,7 +5,7 @@ Thank you for considering contributing to `ggtree-py`!
 ## Development Setup
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/zhanxw/ggtree.py.git
 cd ggtree.py
 python3 -m pip install -e ".[dev]"
 ```
@@ -37,4 +37,4 @@ uv build
 - Keep core runtime dependencies restricted to the Python standard library and `numpy`.
 - Add or update tests in `tests/test_ggtree.py` or `tests/test_examples.py`.
 - Update the relevant documentation under `docs/` when adding or modifying public APIs.
-- Follow the [Contributor Code of Conduct](CONDUCT.md).
+- Follow the [Contributor Code of Conduct](https://github.com/zhanxw/ggtree.py/blob/main/CONDUCT.md).

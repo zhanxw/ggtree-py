@@ -21,7 +21,7 @@ pip install ggtree-py
 ### Local Development Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/zhanxw/ggtree.py.git
 cd ggtree.py
 pip install -e ".[dev]"
 python3 -s -m unittest discover -s tests -v
@@ -145,14 +145,14 @@ p_tangle = ggdoubletree(ggtree(t1) + geom_tiplab(), ggtree(t2) + geom_tiplab(), 
 
 ## Documentation
 
-Full guides and reference pages live in [`docs/`](docs/index.md):
+Full guides and reference pages are hosted on [**GitHub Pages**](https://zhanxw.github.io/ggtree.py/) and in [`docs/`](https://github.com/zhanxw/ggtree.py/tree/main/docs):
 
-- [Documentation Index](docs/index.md)
-- [Getting Started & Tree Data I/O](docs/getting_started.md)
-- [Layouts & Tree Manipulation](docs/layouts_and_manipulation.md)
-- [Annotations, Heatmaps, Facets & Multi-Tree Compositions](docs/annotations_and_compositions.md)
-- [API Reference](docs/api_reference.md)
-- [R-to-Python Migration Guide](docs/r_to_python_migration.md)
+- [Documentation Index](https://zhanxw.github.io/ggtree.py/) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/index.md))
+- [Getting Started & Tree Data I/O](https://zhanxw.github.io/ggtree.py/getting_started.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/getting_started.md))
+- [Layouts & Tree Manipulation](https://zhanxw.github.io/ggtree.py/layouts_and_manipulation.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/layouts_and_manipulation.md))
+- [Annotations, Heatmaps, Facets & Multi-Tree Compositions](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/annotations_and_compositions.md))
+- [API Reference](https://zhanxw.github.io/ggtree.py/api_reference.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/api_reference.md))
+- [R-to-Python Migration Guide](https://zhanxw.github.io/ggtree.py/r_to_python_migration.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/r_to_python_migration.md))
 
 ---
 
@@ -170,4 +170,4 @@ If you use `ggtree` in published research, please cite the original papers:
 
 ## License
 
-Artistic License 2.0 — see [LICENSE](LICENSE).
+Artistic License 2.0 — see [LICENSE](https://github.com/zhanxw/ggtree.py/blob/main/LICENSE).

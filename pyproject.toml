@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ggtree-py"
-version = "0.1.0"
+version = "0.1.1"
 description = "Grammar of Graphics for Phylogenetic Trees in Python — an R-compatible port of Bioconductor ggtree."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,7 +44,11 @@ dependencies = [
 dev = ["pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://yulab-smu.top/treedata-book/"
+Homepage = "https://github.com/zhanxw/ggtree.py"
+Documentation = "https://zhanxw.github.io/ggtree.py/"
+Repository = "https://github.com/zhanxw/ggtree.py"
+Issues = "https://github.com/zhanxw/ggtree.py/issues"
+Changelog = "https://github.com/zhanxw/ggtree.py/blob/main/CHANGELOG.md"
 Upstream = "https://github.com/YuLab-SMU/ggtree"
 
 [tool.hatch.build.targets.wheel]

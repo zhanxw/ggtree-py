@@ -1,5 +1,7 @@
 # Annotations, Heatmaps, Facets & Multi-Tree Compositions
 
+> **Navigation:** [Docs Home](index.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+
 ## 1. Tree Annotation Layers (`ggtree.geoms`)
 
 | Geom | Purpose |
