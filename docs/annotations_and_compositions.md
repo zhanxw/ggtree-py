@@ -1,6 +1,6 @@
 # Annotations, Heatmaps, Facets & Multi-Tree Compositions
 
-> **Navigation:** [Docs Home](index.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+> **Navigation:** [Docs Home](index.md) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
 
 ## 1. Tree Annotation Layers (`ggtree.geoms`)
 
@@ -26,6 +26,30 @@
 
 `parse=True` supports basic R plotmath strings such as `italic('Clade IL')`, `bold('Label')`, and `bolditalic('Taxon')`.
 
+```python
+p = (
+    gg.ggtree(tr)
+    + gg.geom_rootedge(rootedge=8.0)
+    + gg.geom_hilight(node=c1, fill="#3498DB", alpha=0.25, extend=4.0)
+    + gg.geom_tiplab(offset=1.5)
+    + gg.geom_cladelab(node=c1, label="italic('Clade I')", parse=True, offset=11.0, offset_text=1.8)
+    + gg.geom_strip(taxa1="I", taxa2="L", label="Clade III", offset=11.0, offset_text=1.8)
+    + gg.geom_taxalink(taxa1="C", taxa2="G", color="#8E44AD", curvature=-0.45)
+    + gg.geom_treescale(x=5, y=1.5, width=20)
+    + gg.hexpand(0.32)
+)
+```
+
+![Richly annotated tree](figures/04_annotated_tree.png)
+
+Clade highlights (`geom_hilight`) vs sibling-clade balance bands (`geom_balance`):
+
+![Clade highlights and balance](figures/ac_02_hilight_and_balance.png)
+
+Taxa strips (`geom_strip`) and pairwise curved links (`geom_taxalink`) in rectangular and circular layouts:
+
+![Taxa links and strips](figures/ac_03_taxalink_and_strip.png)
+
 ---
 
 ## 2. Aligned Heatmaps & Sequences (`gheatmap`, `msaplot`, `new_scale_fill`)
@@ -38,13 +62,15 @@ Appends a matrix/DataFrame heatmap aligned row-for-row with tree tips (works in 
 p_hm = gg.gheatmap(
     p_tree,
     genotype_df,
-    offset=5.0,
-    width=0.5,
-    font_size=3.0,
+    offset=6.5,
+    width=0.55,
+    font_size=2.8,
     colnames_angle=-45,
     hjust=0.0,
 )
 ```
+
+![BEAST phylogeny with genotype heatmap](figures/05_beast_gheatmap.png)
 
 - Column positions can be inspected with `get_heatmap_column_position(p_hm, by="bottom")`.
 - Missing values (`NA`, `None`, `""`) are handled cleanly.
@@ -54,9 +80,11 @@ p_hm = gg.gheatmap(
 Track independent color/fill legends across stacked `gheatmap()` calls:
 
 ```python
-p1 = gg.gheatmap(base, df_cat, offset=0.8, width=0.2) + gg.scale_fill_viridis_d(option="D") + gg.new_scale_fill()
-p2 = gg.gheatmap(p1, df_num, offset=12.8, width=0.3) + gg.scale_fill_viridis_c(option="A")
+p1 = gg.gheatmap(base, df_cat, offset=0.55, width=0.28) + gg.scale_fill_viridis_d(option="D") + gg.new_scale_fill()
+p2 = gg.gheatmap(p1, df_num, offset=2.05, width=0.28) + gg.scale_fill_viridis_c(option="A")
 ```
+
+![Circular tree with stacked heatmaps](figures/06_circular_stacked_heatmap.png)
 
 Supported continuous & discrete palettes:
 - `scale_fill_viridis_c` / `scale_fill_viridis_d` / `scale_color_viridis_c` / `scale_color_viridis_d` (options `"D"`, `"A"`, `"B"`, `"C"`, `"E"`)
@@ -68,13 +96,15 @@ Aligns a FASTA sequence alignment next to a tree:
 
 ```python
 p_msa = gg.msaplot(
-    gg.ggtree(pa_tree) + gg.geom_tiplab(size=2.5),
+    gg.ggtree(pa_tree) + gg.geom_tiplab(size=2.8),
     fasta=gg.system_file("extdata/pa.fas", package="ggtree"),
     window=(1, 60),
-    offset=0.1,
-    width=1.2,
+    offset=0.014,
+    width=1.35,
 )
 ```
+
+![Multiple sequence alignment plot](figures/07_msaplot.png)
 
 ---
 
@@ -86,12 +116,31 @@ Attach arbitrary ggplot-style panels synchronized by tip `y` coordinate alongsid
 p_facet = (
     gg.ggtree(tr)
     + gg.geom_tiplab()
-    + gg.geom_facet(panel="Trait", data=trait_df, geom=gg.geom_point, mapping=gg.aes(x="value"))
-    + gg.xlim_tree(6)
+    + gg.geom_facet(panel="Trait", data=trait_df, geom=gg.geom_point, mapping=gg.aes(x="value", color="group"))
+    + gg.scale_color_manual(values={"High": "#E74C3C", "Low": "#2980B9"})
+    + gg.theme_bw()
 )
-p_facet = gg.facet_widths(p_facet, widths=[1, 2])
+p_facet = gg.facet_widths(p_facet, widths=[1.1, 1.3])
 p_facet = gg.facet_labeller(p_facet, {"Tree": "Phylogeny", "Trait": "Continuous Trait"})
 ```
+
+![Single facet panel](figures/08_facet_plot.png)
+
+Multiple data panels can be stacked side by side with shared discrete scales (`geom_col` bar panel + `geom_segment` / `geom_point` Cleveland dot plot):
+
+```python
+p_multi = (
+    gg.ggtree(tr)
+    + gg.geom_tiplab()
+    + gg.geom_facet(panel="Abundance", data=ab_df, geom=gg.geom_col, mapping=gg.aes(x="abundance", fill="habitat"))
+    + gg.geom_facet(panel="Trait", data=tr_df, geom=gg.geom_segment, mapping=gg.aes(x="trait_x0", xend="trait_val", y="y", yend="y"))
+    + gg.geom_facet(panel="Trait", data=tr_df, geom=gg.geom_point, mapping=gg.aes(x="trait_val", color="habitat"))
+    + gg.theme_bw()
+)
+p_multi = gg.facet_widths(p_multi, widths=[1.1, 0.9, 0.9])
+```
+
+![Multi-panel facets with geom_col and dotplot](figures/ac_07_multifacet_panels.png)
 
 - Retrieve panel data via `facet_data(p_facet, "Trait")`.
 - Supported panel geoms include `geom_point`, `geom_tile`, `geom_bar`, `geom_col`, `geom_boxplot`, `geom_violin`, `geom_density`, `geom_histogram`, `geom_segment`, `geom_line`, `geom_errorbar`, and `geom_text`.
@@ -104,16 +153,20 @@ Overlay pie charts or bar charts at internal/tip nodes:
 
 ```python
 anc_df = gg.DataFrame({
-    "node": [11, 12, 13],
-    "A": [0.7, 0.2, 0.1],
-    "B": [0.2, 0.5, 0.3],
-    "C": [0.1, 0.3, 0.6],
+    "node": [11, 12, 13, 14, 15],
+    "State_A": [0.29, 0.43, 0.57, 0.71, 0.15],
+    "State_B": [0.41, 0.27, 0.13, 0.14, 0.55],
+    "State_C": [0.30, 0.30, 0.30, 0.15, 0.30],
 })
-pies = gg.nodepie(anc_df, cols=[1, 2, 3])  # or cols=["A", "B", "C"]
-p_pie = gg.inset(gg.ggtree(tr) + gg.geom_tiplab(), pies, width=0.12, height=0.12)
+pies = gg.nodepie(anc_df, cols=["State_A", "State_B", "State_C"])
+p_pie = gg.inset(gg.ggtree(tr) + gg.geom_tiplab(), pies, width=0.11, height=0.11)
 ```
 
-`nodebar(data, cols=..., color=None, alpha=1.0, position="stack")` provides grouped/stacked bar insets.
+![Node pie insets](figures/09_inset_pies.png)
+
+`nodebar(data, cols=..., color=None, alpha=1.0, position="stack")` provides stacked (`position="stack"`) or grouped (`position="dodge"`) bar insets:
+
+![Stacked vs dodged nodebar insets](figures/ac_09_inset_bars.png)
 
 ---
 
@@ -125,8 +178,10 @@ Overlays an ensemble of `MultiPhylo` / `TreeDataList` trees (`tip_order="mode"`,
 
 ```python
 trees = gg.read_tree(gg.system_file("extdata", "ggdensitree_example.tree", package="ggtree"))
-p_dens = gg.ggdensitree(trees, alpha=0.3, colour="steelblue") + gg.geom_tiplab(size=2.5) + gg.hexpand(0.3)
+p_dens = gg.ggdensitree(trees, alpha=0.28, colour="steelblue") + gg.geom_tiplab(size=2.5) + gg.hexpand(0.32)
 ```
+
+![Densitree overlay](figures/11_ggdensitree.png)
 
 ### `as_tanglegram()` & `ggdoubletree()`
 
@@ -137,13 +192,21 @@ p_tg = gg.ggdoubletree(
     gg.ggtree(t1) + gg.geom_tiplab(),
     gg.ggtree(t2) + gg.geom_tiplab(),
     assoc=assoc_df,
+    gap=0.22,
     optimize=True,
     optimize_side="both",
-    link_color="steelblue",
+    link_color="#2980B9",
 )
 ```
 
+![Tanglegram before and after optimization](figures/ac_11_tanglegram_before_after.png)
+
 ### Multi-Panel Grids (`multiplot`, `plot_list`, `|`, `/`)
 
-- `multiplot(p1, p2, ncol=2)` or `plot_list(*plots, ncol=..., nrow=..., widths=..., heights=..., tag_levels="A")`
-- Nested patchwork operators: `(p1 | p2) / p3` builds a 2-column top row above a full-width bottom plot.
+- `multiplot(p1, p2, p3, ncol=3, labels=["A", "B", "C"])` or `plot_list(*plots, ncol=..., nrow=..., widths=..., heights=..., tag_levels="A")`:
+
+![Multiplot grid](figures/13_multiplot.png)
+
+- Nested patchwork operators: `(p_rect | p_circ) / p_bot` builds a 2-column top row above a full-width bottom plot:
+
+![Patchwork composition](figures/14_patchwork.png)

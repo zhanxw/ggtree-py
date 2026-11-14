@@ -965,6 +965,74 @@ class TestGGTreeSuite(unittest.TestCase):
                     if j != k and abs(ys[j] - ys[k]) < 1e-9:
                         self.assertFalse(pxs[j] < xs[k] - 1e-9 and xs[j] > xs[k] + 1e-9)
 
+    def test_svg_color_mapping_col_and_stacked_nodebar(self):
+        """Verify SVG rendering for mapped branch/tiplab colors, geom_col facets, and stacked nodebar."""
+        tr = read_tree(text="((A:1,B:1):1,(C:1,D:1):1);")
+        tr_c = groupClade(tr, MRCA(tr, "A", "B"))
+        p_clade = (
+            ggtree(tr_c, aes(color="group"))
+            + scale_color_manual(values={"0": "#112233", "1": "#D95F02"})
+        )
+        svg_clade = p_clade.to_svg()
+        self.assertIn("#D95F02", svg_clade)
+        self.assertIn("#112233", svg_clade)
+
+        meta = DataFrame({"taxa": ["A", "B", "C", "D"], "group": ["g1", "g1", "g2", "g2"], "ab": [2.5, 4.0, 1.5, 3.0]})
+        p_tip = (
+            ggtree(tr) % meta
+            + geom_tiplab(aes(color="group"))
+            + scale_color_manual(values={"g1": "#2563EB", "g2": "#DC2626"})
+            + geom_facet(panel="Abundance", data=meta, geom=geom_col, mapping=aes(x="ab", fill="group"))
+            + scale_fill_manual(values={"g1": "#93C5FD", "g2": "#FCA5A5"})
+        )
+        svg_tip = p_tip.to_svg()
+        self.assertIn("#2563EB", svg_tip)
+        self.assertIn("#DC2626", svg_tip)
+        self.assertIn("#93C5FD", svg_tip)
+        self.assertIn("#FCA5A5", svg_tip)
+
+        bar_df = DataFrame({"node": [5, 6], "x1": [0.7, 0.3], "x2": [0.3, 0.7]})
+        bars_stack = nodebar(bar_df, cols=["x1", "x2"], color={"x1": "#1D4ED8", "x2": "#F59E0B"}, position="stack")
+        bars_dodge = nodebar(bar_df, cols=["x1", "x2"], color={"x1": "#1D4ED8", "x2": "#F59E0B"}, position="dodge")
+        svg_stack = inset(ggtree(tr), bars_stack, width=0.1, height=0.1).to_svg()
+        svg_dodge = inset(ggtree(tr), bars_dodge, width=0.1, height=0.1).to_svg()
+        self.assertIn("#1D4ED8", svg_stack)
+        self.assertIn("#F59E0B", svg_stack)
+        self.assertNotEqual(svg_stack, svg_dodge)
+
+    def test_extract_clade_balance_size_and_facet_legend(self):
+        """Verify extract_clade preserves node_label, 2-color geom_balance, mapped point size scaling, and facet legend rendering."""
+        import re
+
+        tr = read_tree(text="((A:1,B:1)95:1,(C:1,D:1)88:1)100;")
+        sub = extract_clade(tr, MRCA(tr, "A", "B"))
+        self.assertIsNotNone(sub.node_label)
+        self.assertIn("95", sub.node_label)
+
+        split = MRCA(tr, "A", "D")
+        p_bal = ggtree(tr) + geom_balance(split, fill=["#3498DB", "#E67E22"], color=["#1F618D", "#B9770E"])
+        svg_bal = p_bal.to_svg()
+        self.assertIn("#3498DB", svg_bal)
+        self.assertIn("#E67E22", svg_bal)
+
+        meta = DataFrame({"taxa": ["A", "B", "C", "D"], "score": [12, 24, 36, 48], "group": ["g1", "g1", "g2", "g2"]})
+        p_sz = ggtree(tr) % meta + geom_tippoint(aes(size="score", color="group"))
+        svg_sz = p_sz.to_svg()
+        radii = [float(m) for m in re.findall(r'<circle [^>]*r="([0-9.]+)"', svg_sz)]
+        self.assertTrue(len(radii) >= 4)
+        self.assertTrue(all(r <= 15.0 for r in radii))
+
+        p_fac = (
+            ggtree(tr)
+            + geom_tiplab()
+            + geom_facet(panel="Trait", data=meta, geom=geom_point, mapping=aes(x="score", color="group"))
+            + scale_color_manual(values={"g1": "#11AA22", "g2": "#AA1122"})
+        )
+        svg_fac = p_fac.to_svg()
+        self.assertIn("#11AA22", svg_fac)
+        self.assertIn("g1", svg_fac)
+        self.assertIn("g2", svg_fac)
+
 
 if __name__ == "__main__":
     unittest.main()

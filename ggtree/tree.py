@@ -1564,11 +1564,19 @@ def extract_clade(phy: Any, node: Union[int, str]) -> Phylo:
             if p.edge_length is not None:
                 new_el.append(float(p.edge_length[i]))
 
+    new_nl = None
+    if p.node_label is not None:
+        new_nl = [
+            p.node_label[iid - ntip - 1] if 0 <= (iid - ntip - 1) < len(p.node_label) else None
+            for iid in int_ids
+        ]
+
     return Phylo(
         edge=new_edges,
         tip_label=[p.tip_label[tid - 1] for tid in tip_ids],
         Nnode=len(int_ids),
         edge_length=new_el if p.edge_length is not None else None,
+        node_label=new_nl,
     )
 
 

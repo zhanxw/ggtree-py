@@ -1,6 +1,6 @@
 # Getting Started & Tree Data I/O
 
-> **Navigation:** [Docs Home](index.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+> **Navigation:** [Docs Home](index.md) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
 
 ## 1. Reading & Creating Trees (`ggtree.tree`)
 
@@ -35,6 +35,29 @@ raxml_tr = gg.read_tree(gg.system_file("extdata/RAxML", "RAxML_bipartitions.H3",
 - `as_phylo(x)`, `as_treedata(x)`, `as_tibble(x)` -> `TblTree` containing `parent`, `node`, `branch.length`, `label`, and any attached node annotations.
 - `fortify(tr, layout="rectangular", ...)` -> `TblTree` with layout coordinates (`x`, `y`, `branch`, `angle`, `isTip`, ...).
 
+Compare phylograms (`read_tree`), cladograms (`branch_length="none"`), and hierarchical clustering trees (`hclust`):
+
+```python
+import numpy as np
+import ggtree as gg
+
+tr = gg.read_tree(text="((A:1.0,B:2.0):1.0,(C:1.5,D:0.8):1.2);")
+p1 = gg.ggtree(tr) + gg.geom_tiplab(offset=0.1) + gg.geom_tippoint(color="#2980B9") + gg.theme_tree2() + gg.hexpand(0.25)
+p2 = gg.ggtree(tr, branch_length="none") + gg.geom_tiplab(offset=0.1) + gg.geom_tippoint(color="#27AE60") + gg.hexpand(0.25)
+
+dmat = np.array([
+    [0.0, 1.5, 5.0, 5.2],
+    [1.5, 0.0, 4.8, 5.1],
+    [5.0, 4.8, 0.0, 2.0],
+    [5.2, 5.1, 2.0, 0.0],
+])
+hc = gg.hclust(dmat, method="average", labels=["S1", "S2", "S3", "S4"])
+p3 = gg.ggtree(hc) + gg.geom_tiplab(offset=0.1) + gg.geom_tippoint(color="#8E44AD") + gg.theme_tree2() + gg.hexpand(0.28)
+p1 | p2 | p3
+```
+
+![Basic tree structures](figures/gs_01_basic_trees.png)
+
 ---
 
 ## 2. Attaching Metadata & Transforming Tree Data
@@ -46,20 +69,24 @@ External annotations (such as sample metadata, traits, or host species) can be a
 ```python
 import ggtree as gg
 
-tr = gg.read_tree(text="((A:1,B:1):1,(C:1,D:1):1);")
+tr = gg.read_tree(text="(((A:1.2,B:0.9):1.0,(C:1.5,D:1.1):0.8):0.7,(E:1.3,F:1.6):1.1);")
 meta = gg.DataFrame({
-    "taxa": ["A", "B", "C", "D"],
-    "score": [10, 20, 30, 40],
-    "group": ["g1", "g1", "g2", "g2"],
+    "taxa": ["A", "B", "C", "D", "E", "F"],
+    "score": [12, 24, 18, 36, 28, 45],
+    "group": ["Alpha", "Alpha", "Beta", "Beta", "Gamma", "Gamma"],
 })
 
 p = (
     gg.ggtree(tr)
     % meta
-    + gg.geom_tiplab(gg.aes(color="group"))
-    + gg.geom_tippoint(gg.aes(size="score"))
+    + gg.geom_tiplab(gg.aes(color="group"), offset=0.25)
+    + gg.geom_tippoint(gg.aes(size="score", color="group"))
+    + gg.scale_color_brewer(palette="Set1")
+    + gg.hexpand(0.32)
 )
 ```
+
+![Metadata attachment via %](figures/gs_02_metadata_operator.png)
 
 - `p % meta` (or `p << meta`, `p @ meta`) joins `meta` onto `p.data` matching the label/taxa column (`taxa`, `label`, or first column).
 - `p % new_tree` replaces the tree inside `p` (equivalent to R's `%<%`) while retaining layers and themes.
@@ -70,8 +97,20 @@ p = (
 - `td_filter(...)`, `td_mutate(...)`, and `td_unnest(cols)` create layer `data=` callables matching R's lazy `td_*()` helpers:
 
 ```python
-p = gg.ggtree(tr) + gg.geom_point(data=gg.td_filter("isTip"), color="red")
+p = (
+    gg.ggtree(tr)
+    + gg.geom_point(data=gg.td_filter("isTip"), color="red", size=3.4)
+    + gg.geom_point(data=gg.td_filter("!isTip"), color="steelblue", size=2.8)
+    + gg.geom_tiplab(
+        data=gg.td_mutate(padded=lambda d: gg.label_pad(d["label"], justify="right", pad=".")),
+        mapping=gg.aes(label="padded"),
+        offset=0.15,
+    )
+    + gg.hexpand(0.45)
+)
 ```
+
+![td_filter and td_mutate](figures/gs_03_td_filter_mutate.png)
 
 ---
 
@@ -85,14 +124,31 @@ p = gg.ggtree(tr) + gg.geom_point(data=gg.td_filter("isTip"), color="red")
 ```python
 p = (
     gg.ggtree(tr)
-    + gg.geom_nodepoint(gg.aes(subset=~gg.isTip), color="orange", size=2)
-    + gg.geom_text2(gg.aes(subset=~gg.isTip, label=gg.node), hjust=-0.3)
+    + gg.geom_nodepoint(gg.aes(subset=~gg.isTip), color="orange", size=3.6)
+    + gg.geom_text2(gg.aes(subset=~gg.isTip, label=gg.node), hjust=-0.65, color="#D35400")
+    + gg.geom_tippoint(color="#2980B9", size=3.0)
+    + gg.geom_tiplab(offset=0.22)
+    + gg.geom_text2(gg.aes(x=gg.branch, label="branch.length", subset="branch.length > 0"), vjust=-0.6, color="#7F8C8D")
+    + gg.hexpand(0.25)
 )
 ```
 
+![Symbolic aesthetics and subsetting](figures/gs_04_aes_symbolic_subset.png)
+
 ---
 
-## 4. Building, Exporting SVG & PNG
+## 4. Themes & Axis Styling (`theme_tree`, `theme_tree2`, `theme_bw`, `theme_minimal`)
+
+```python
+base = gg.ggtree(tr) + gg.geom_tippoint(color="#2980B9") + gg.geom_tiplab(offset=0.1) + gg.hexpand(0.22)
+(base + gg.theme_tree() | base + gg.theme_tree2()) / (base + gg.theme_bw() | base + gg.theme_minimal())
+```
+
+![Themes comparison](figures/gs_05_themes_comparison.png)
+
+---
+
+## 5. Building, Exporting SVG & PNG
 
 - **SVG string**: `svg_text = p.to_svg(width=800, height=600)` (or `_repr_svg_()` for Jupyter notebooks)
 - **PNG bytes**: `png_data = p.to_png(width=800, height=600)`

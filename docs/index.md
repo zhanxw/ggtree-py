@@ -1,16 +1,27 @@
 # `ggtree-py` Documentation
 
-Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.1`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
+Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.2`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
 
-[**GitHub Repository**](https://github.com/zhanxw/ggtree.py) · [**PyPI Package**](https://pypi.org/project/ggtree-py/) · [**Upstream R ggtree**](https://github.com/YuLab-SMU/ggtree)
+[**GitHub Repository**](https://github.com/zhanxw/ggtree.py) · [**PyPI Package**](https://pypi.org/project/ggtree-py/) · [**Visual Gallery (28 Figures)**](gallery.md) · [**Upstream R ggtree**](https://github.com/YuLab-SMU/ggtree)
+
+## Visual Tour
+
+Explore the complete visual showcase in the **[Visual Gallery](gallery.md)** (`docs/generate_doc_figures.py`):
+
+| Layouts (`12+ Modes`) | BEAST + `gheatmap()` | Circular + Dual Heatmaps |
+| :---: | :---: | :---: |
+| [![All 12 phylogenetic layouts](figures/01_all_layouts_grid.png)](layouts_and_manipulation.md#1-phylogenetic-layouts-ggtree-layout) | [![BEAST tree with genotype heatmap](figures/05_beast_gheatmap.png)](annotations_and_compositions.md#2-aligned-heatmaps--sequences-gheatmap-msaplot-new_scale_fill) | [![Circular tree with dual heatmaps](figures/06_circular_stacked_heatmap.png)](annotations_and_compositions.md#multiple-fillcolor-scales-new_scale_fill-new_scale_color) |
+| **`msaplot()` Alignment** | **Multi-Panel `geom_facet()`** | **`ggdoubletree()` Tanglegram** |
+| [![Multiple sequence alignment plot](figures/07_msaplot.png)](annotations_and_compositions.md#msaplot) | [![Multi-panel facets with geom_col and dot plot](figures/ac_07_multifacet_panels.png)](annotations_and_compositions.md#3-faceted-data-panels-geom_facet--facet_plot) | [![Tanglegram before and after optimization](figures/ac_11_tanglegram_before_after.png)](annotations_and_compositions.md#as_tanglegram--ggdoubletree) |
 
 ## Guides
 
-1. **[Getting Started & Tree Data I/O](getting_started.md)** — Reading Newick, BEAST, NHX, jplace, RAxML, FASTA, and hierarchical clustering objects; joining metadata; symbolic aesthetics; SVG/PNG export.
+1. **[Getting Started & Tree Data I/O](getting_started.md)** — Reading Newick, BEAST, NHX, jplace, RAxML, FASTA, and hierarchical clustering objects; joining metadata; symbolic aesthetics; themes; SVG/PNG export.
 2. **[Layouts & Tree Manipulation](layouts_and_manipulation.md)** — All 12+ phylogenetic tree layouts, polar/fan/dendrogram modifiers, time-scaled MRSD trees (`mrsd`, `revts`), clade selection (`MRCA`, `groupOTU`, `groupClade`), and structural edits (`collapse`, `expand`, `rotate`, `flip`, `scaleClade`, `viewClade`, `zoomClade`, `as_polytomy`).
-3. **[Annotations, Heatmaps, Facets & Multi-Tree Compositions](annotations_and_compositions.md)** — Clade labels, highlights, strips, taxa links, HPD uncertainty ranges (`geom_range`), aligned heatmaps (`gheatmap`, `new_scale_fill`), sequence alignments (`msaplot`), facet panels (`geom_facet`, `facet_plot`), node insets (`nodepie`, `nodebar`), `ggdensitree`, `ggdoubletree`, and `multiplot` / patchwork (`|`, `/`).
-4. **[API Reference](api_reference.md)** — Public functions, classes, and parameter signatures grouped by module.
-5. **[R-to-Python Migration Guide](r_to_python_migration.md)** — Side-by-side translation patterns for bringing existing R `ggtree` scripts directly to Python.
+3. **[Annotations, Heatmaps, Facets & Multi-Tree Compositions](annotations_and_compositions.md)** — Clade labels, highlights, balance bands, strips, taxa links, HPD uncertainty ranges (`geom_range`), aligned heatmaps (`gheatmap`, `new_scale_fill`), sequence alignments (`msaplot`), facet panels (`geom_facet`, `facet_plot`), node insets (`nodepie`, `nodebar`), `ggdensitree`, `ggdoubletree`, and `multiplot` / patchwork (`|`, `/`).
+4. **[Visual Gallery (28 Figures)](gallery.md)** — Annotated visual index of all 28 rendered figures organized by workflow and module.
+5. **[API Reference](api_reference.md)** — Public functions, classes, and parameter signatures grouped by module.
+6. **[R-to-Python Migration Guide](r_to_python_migration.md)** — Side-by-side translation patterns for bringing existing R `ggtree` scripts directly to Python.
 
 ## Package Architecture
 

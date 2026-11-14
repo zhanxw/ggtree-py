@@ -1,6 +1,6 @@
 # R-to-Python Migration Guide
 
-> **Navigation:** [Docs Home](index.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+> **Navigation:** [Docs Home](index.md) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
 
 Because `ggtree-py` preserves R `ggtree` conventions closely, porting an existing R workflow requires only a few mechanical adjustments.
 
@@ -50,6 +50,8 @@ p = (
     + theme_tree2()
 )
 
-phm = gheatmap(p, genotype, offset=5, width=0.5, font_size=3, colnames_angle=-45, hjust=0)
-ggsave("flu_beast_heatmap.png", plot=phm, width=11, height=11, dpi=100)
+phm = gheatmap(p, genotype, offset=6.5, width=0.55, font_size=2.8, colnames_angle=-45, hjust=0)
+ggsave("flu_beast_heatmap.png", plot=phm, width=10.5, height=9.5, dpi=120)
 ```
+
+![BEAST FluA H3 gheatmap output](figures/05_beast_gheatmap.png)

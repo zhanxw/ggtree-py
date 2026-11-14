@@ -491,11 +491,22 @@ class GGTree:
         has_rotated_bottom_text = False
         max_right_label_chars = 0
         has_tile_legend = False
+        has_color_scale_legend = False
 
         for layer, ldf in zip(self.layers, built.data):
             gt = layer.geom_type
             if gt == "tile" and len(ldf) > 0:
                 has_tile_legend = True
+            inherit_flag = layer.params.get("inherit.aes", layer.params.get("inherit_aes", True))
+            merged_aes = self.mapping.merge(layer.mapping) if inherit_flag else layer.mapping
+            if gt not in ("tile", "blank", "inset") and len(ldf) > 0:
+                if "color" in merged_aes or "colour" in merged_aes or "fill" in merged_aes:
+                    c_key = "fill" if "fill" in merged_aes else ("color" if "color" in merged_aes else "colour")
+                    scale_hint = layer.params.get(f"_{c_key}_scale") or self.scales.get("fill" if c_key == "fill" else "color")
+                    col_vals = [r.get(c_key, r.get("color", r.get("colour", r.get("fill")))) for r in ldf.to_records()]
+                    non_na_vals = [v for v in col_vals if not _is_scalar_na(v) and str(v) != ""]
+                    if non_na_vals and (scale_hint is not None or not all(_is_direct_css_color(v) for v in non_na_vals)):
+                        has_color_scale_legend = True
             if gt in ("tiplab", "tiplab2", "nodelab", "nodelab2", "text", "text2", "label", "label2", "cladelab_text", "strip_text") and len(ldf) > 0:
                 ang_param = layer.params.get("angle", 0.0)
                 if isinstance(ang_param, (int, float)) and abs(float(ang_param)) > 15:
@@ -526,14 +537,19 @@ class GGTree:
         if is_flipped and max_right_label_chars > 0 and not compact:
             pad_bottom = max(pad_bottom, 58)
 
-        pad_left = 18 if compact else (52 if show_y_axis else 28)
+        pad_left = (38 if show_y_axis else 18) if compact else (52 if show_y_axis else 28)
         pad_right = 18 if compact else 32
         if not is_polar and not is_flipped and max_right_label_chars > 0 and not compact:
             # Reserve extra space when non-facet right-hand labels sit near x_max
             est_px = min(145, max(36, int(max_right_label_chars * 6.2)))
             pad_right = max(pad_right, est_px)
-        if has_tile_legend and not compact and not is_multi_panel:
+        if has_tile_legend and not compact:
             pad_right = max(pad_right, 118)
+        elif has_color_scale_legend and not compact:
+            if not is_polar and not is_multi_panel and max_right_label_chars > 0:
+                pad_right = max(pad_right + 88, 128)
+            else:
+                pad_right = max(pad_right, 118)
 
         plot_w = max(w - pad_left - pad_right, 60)
         plot_h = max(h - pad_top - pad_bottom, 60)
@@ -601,6 +617,8 @@ class GGTree:
                                 for v in ldf[col].tolist():
                                     if isinstance(v, (int, float, np.number)) and not _is_scalar_na(v):
                                         pan_xs.append(float(v))
+                        if layer.geom_type in ("col", "bar") and len(ldf) > 0:
+                            pan_xs.append(0.0)
                 px_lo = min(pan_xs) if pan_xs else x_min
                 px_hi = max(pan_xs) if pan_xs else x_max
                 lim_x = self.panel_limits.get(pan, {}).get("x")
@@ -698,6 +716,16 @@ class GGTree:
                     tx, _ = map_pt(tv, y_min, panel=pan)
                     parts.append(f'<line x1="{tx:.2f}" y1="{by + bh:.2f}" x2="{tx:.2f}" y2="{by + bh + 4:.2f}" stroke="#4B5563" stroke-width="1"/>')
                     parts.append(f'<text x="{tx:.2f}" y="{by + bh + 15:.2f}" text-anchor="middle" font-family="sans-serif" font-size="9.5" fill="#4B5563">{html.escape(tlbl)}</text>')
+        elif not is_polar and str(self.theme_spec.get("name", "tree") or "tree") in ("bw", "minimal"):
+            bx, by, bw, bh, px0, px1 = panel_boxes["Tree"]
+            for tv, _ in _nice_ticks(px0, px1, n=5):
+                tx, _ = map_pt(tv, y_min)
+                parts.append(f'<line x1="{tx:.2f}" y1="{by:.2f}" x2="{tx:.2f}" y2="{by + bh:.2f}" stroke="#E5E7EB" stroke-width="0.8"/>')
+            for yv, _ in _nice_ticks(y_min, y_max, n=5):
+                _, ty = map_pt(px0, yv)
+                parts.append(f'<line x1="{bx:.2f}" y1="{ty:.2f}" x2="{bx + bw:.2f}" y2="{ty:.2f}" stroke="#E5E7EB" stroke-width="0.8"/>')
+            if str(self.theme_spec.get("name", "")) == "bw":
+                parts.append(f'<rect x="{bx:.2f}" y="{by:.2f}" width="{bw:.2f}" height="{bh:.2f}" fill="none" stroke="#374151" stroke-width="1.0"/>')
 
         legends_to_draw: List[Dict[str, Any]] = []
 
@@ -757,14 +785,22 @@ class GGTree:
                 continue
 
             raw_col = layer.params.get("color", layer.params.get("colour"))
-            color = str(raw_col if raw_col is not None else "#222222")
+            if isinstance(raw_col, (list, tuple)):
+                color = str(raw_col[0]) if raw_col else "#222222"
+            else:
+                color = str(raw_col if raw_col is not None else "#222222")
             raw_fill = layer.params.get("fill")
-            fill = str(raw_fill if raw_fill is not None else "#4682B4")
+            if isinstance(raw_fill, (list, tuple)):
+                fill = str(raw_fill[0]) if raw_fill else "#4682B4"
+            else:
+                fill = str(raw_fill if raw_fill is not None else "#4682B4")
             alpha = float(layer.params.get("alpha", 1.0) if layer.params.get("alpha") is not None else 1.0)
             size = float(layer.params.get("size", layer.params.get("linewidth", 1.1)) or 1.1)
             default_pan = str(layer.params.get("panel", "Tree") or "Tree")
             if default_pan not in panel_boxes:
                 default_pan = "Tree"
+            inherit_flag = layer.params.get("inherit.aes", layer.params.get("inherit_aes", True))
+            merged_aes = self.mapping.merge(layer.mapping) if inherit_flag else layer.mapping
 
             # 1. Highlight / Balance / Rectangles
             if gt in ("hilight", "highlight", "balance", "rect") and len(ldf) > 0:
@@ -802,8 +838,7 @@ class GGTree:
                     scale_obj = layer.params.get("_fill_scale") or (None if self.scales.get("fill") is None else self.scales.get("fill"))
                     is_msa = "base" in ldf.columns or layer.mapping.get("fill") == "base"
                     color_fn, leg_info = _build_value_color_mapper(vals, scale_obj, default_color=fill, is_msa=is_msa)
-                    if leg_info:
-                        legends_to_draw.append(leg_info)
+                    _add_legend_unique(legends_to_draw, leg_info)
                 else:
                     color_fn = lambda v: _resolve_color_value(v, fill)
 
@@ -834,6 +869,40 @@ class GGTree:
                             f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" stroke="{html.escape(border_c, quote=True)}" stroke-width="{sw_tile}"/>'
                         )
 
+            # 2b. Horizontal/facet column & bar charts (geom_col / geom_bar)
+            elif gt in ("col", "bar") and len(ldf) > 0:
+                recs_b = ldf.to_records()
+                has_f_map = "fill" in merged_aes
+                fmap_fn = None
+                if has_f_map:
+                    fvals = [r.get("fill") for r in recs_b]
+                    fmap_fn, leg_b = _build_value_color_mapper(
+                        fvals,
+                        layer.params.get("_fill_scale") or self.scales.get("fill"),
+                        default_color=fill,
+                        force_discrete=True,
+                    )
+                    _add_legend_unique(legends_to_draw, leg_b)
+                border_b = str(layer.params.get("color", layer.params.get("colour", "white")) or "white")
+                for r in recs_b:
+                    pan = str(r.get("PANEL", default_pan) or default_pan)
+                    if pan not in panel_boxes:
+                        pan = default_pan
+                    if _is_scalar_na(r.get("x")) or _is_scalar_na(r.get("y")):
+                        continue
+                    xv = float(r["x"])
+                    yc = float(r["y"])
+                    bh_u = float(r.get("width", layer.params.get("width", 0.68)) or 0.68)
+                    x_lo, x_hi = (0.0, xv) if xv >= 0.0 else (xv, 0.0)
+                    p0 = map_pt(x_lo, yc + bh_u / 2.0, panel=pan)
+                    p1 = map_pt(x_hi, yc - bh_u / 2.0, panel=pan)
+                    rx, ry = min(p0[0], p1[0]), min(p0[1], p1[1])
+                    rw, rh = max(abs(p1[0] - p0[0]), 1.2), max(abs(p1[1] - p0[1]), 1.5)
+                    fcol = fmap_fn(r.get("fill")) if fmap_fn else _resolve_color_value(r.get("fill"), fill)
+                    parts.append(
+                        f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" fill-opacity="{alpha:.2f}" stroke="{html.escape(border_b, quote=True)}" stroke-width="0.4"/>'
+                    )
+
             # 3. Polygons (collapsed clade triangles, etc.)
             elif gt == "polygon" and len(ldf) > 0:
                 pts = []
@@ -854,7 +923,19 @@ class GGTree:
             # 4. Line Segments & Tree Branches
             elif gt in ("tree", "tree2", "tree_horizontal", "tree_vertical", "segment", "segment2", "aline", "rootedge", "treescale", "cladelab_bar", "strip_bar", "taxalink", "tanglelink", "range") and len(ldf) > 0:
                 lt_default = str(layer.params.get("linetype", "") or "")
-                for r in ldf.to_records():
+                recs4 = ldf.to_records()
+                cmap4 = None
+                if ("color" in merged_aes or "colour" in merged_aes) and recs4:
+                    c_expr4 = merged_aes.get("color", merged_aes.get("colour"))
+                    cvals4 = [r.get("color", r.get("colour")) for r in recs4]
+                    cmap4, leg4 = _build_value_color_mapper(
+                        cvals4,
+                        layer.params.get("_color_scale") or self.scales.get("color"),
+                        default_color=color,
+                        force_discrete=(str(c_expr4) in ("group", "focus")),
+                    )
+                    _add_legend_unique(legends_to_draw, leg4)
+                for r in recs4:
                     pan = str(r.get("PANEL", default_pan) or default_pan)
                     if pan not in panel_boxes:
                         pan = default_pan
@@ -863,7 +944,7 @@ class GGTree:
                     x0, y0, x1, y1 = float(r["x"]), float(r["y"]), float(r["xend"]), float(r["yend"])
                     if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
                         continue
-                    rc = _resolve_color_value(r.get("color", r.get("colour")), color)
+                    rc = cmap4(r.get("color", r.get("colour"))) if cmap4 else _resolve_color_value(r.get("color", r.get("colour")), color)
                     rs = float(r.get("linewidth", r.get("size", size)) or size)
                     sw = max(rs * (1.8 if gt == "range" else 1.4), 1.0)
                     r_alpha = float(r.get("alpha", alpha) if r.get("alpha") is not None else alpha)
@@ -958,32 +1039,72 @@ class GGTree:
                                 )
                                 cur_a = nxt_a
                     elif spec.get("type") == "bar" and isinstance(vals_dict, dict):
-                        bw_tot = pie_r * 2.0
-                        bh_tot = pie_r * 1.6
                         keys_list = list(vals_dict.keys())
-                        mx_v = max((abs(float(vals_dict[k])) for k in keys_list), default=1.0) or 1.0
-                        sub_w = bw_tot / max(len(keys_list), 1)
-                        for ki, k in enumerate(keys_list):
-                            val = max(float(vals_dict[k]), 0.0)
-                            bh_i = (val / mx_v) * bh_tot
-                            scol = _resolve_color_value(cols_dict.get(k), _DISCRETE_PALETTE[ki % len(_DISCRETE_PALETTE)])
-                            rx = px - bw_tot / 2.0 + ki * sub_w
-                            ry = py + bh_tot / 2.0 - bh_i
-                            parts.append(
-                                f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{max(sub_w - 1.0, 2.0):.2f}" height="{bh_i:.2f}" fill="{html.escape(scol, quote=True)}" fill-opacity="{ialpha:.2f}"/>'
-                            )
+                        pos_mode = str(spec.get("position", "stack") or "stack")
+                        if pos_mode == "stack":
+                            bw_tot = pie_r * 2.4
+                            bh_tot = pie_r * 0.95
+                            tot_v = sum(max(float(vals_dict[k]), 0.0) for k in keys_list) or 1.0
+                            cur_x = px - bw_tot / 2.0
+                            top_y = py - bh_tot / 2.0
+                            for ki, k in enumerate(keys_list):
+                                val = max(float(vals_dict[k]), 0.0)
+                                seg_w = (val / tot_v) * bw_tot
+                                if seg_w <= 0.1:
+                                    continue
+                                scol = _resolve_color_value(cols_dict.get(k), _DISCRETE_PALETTE[ki % len(_DISCRETE_PALETTE)])
+                                parts.append(
+                                    f'<rect x="{cur_x:.2f}" y="{top_y:.2f}" width="{seg_w:.2f}" height="{bh_tot:.2f}" fill="{html.escape(scol, quote=True)}" fill-opacity="{ialpha:.2f}" stroke="white" stroke-width="0.5"/>'
+                                )
+                                cur_x += seg_w
+                        else:
+                            bw_tot = pie_r * 2.0
+                            bh_tot = pie_r * 1.6
+                            mx_v = max((abs(float(vals_dict[k])) for k in keys_list), default=1.0) or 1.0
+                            sub_w = bw_tot / max(len(keys_list), 1)
+                            for ki, k in enumerate(keys_list):
+                                val = max(float(vals_dict[k]), 0.0)
+                                bh_i = (val / mx_v) * bh_tot
+                                scol = _resolve_color_value(cols_dict.get(k), _DISCRETE_PALETTE[ki % len(_DISCRETE_PALETTE)])
+                                rx = px - bw_tot / 2.0 + ki * sub_w
+                                ry = py + bh_tot / 2.0 - bh_i
+                                parts.append(
+                                    f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{max(sub_w - 1.0, 2.0):.2f}" height="{bh_i:.2f}" fill="{html.escape(scol, quote=True)}" fill-opacity="{ialpha:.2f}"/>'
+                                )
 
             # 6. Points (point, point2, tippoint, nodepoint, rootpoint)
             elif gt in ("point", "point2", "tippoint", "nodepoint", "rootpoint") and len(ldf) > 0:
                 recs = ldf.to_records()
-                has_c_map = "color" in layer.mapping or "colour" in layer.mapping
+                has_c_map = "color" in merged_aes or "colour" in merged_aes
                 cmap_fn = None
                 if has_c_map:
+                    c_expr6 = merged_aes.get("color", merged_aes.get("colour"))
                     cvals = [r.get("color", r.get("colour")) for r in recs]
-                    cmap_fn, leg_info = _build_value_color_mapper(cvals, layer.params.get("_color_scale") or self.scales.get("color"), default_color=color)
-                    if leg_info:
-                        legends_to_draw.append(leg_info)
+                    cmap_fn, leg_info = _build_value_color_mapper(
+                        cvals,
+                        layer.params.get("_color_scale") or self.scales.get("color"),
+                        default_color=color,
+                        force_discrete=(str(c_expr6) in ("group", "focus")),
+                    )
+                    _add_legend_unique(legends_to_draw, leg_info)
                 r_default = max(size * (1.5 if compact else 1.8), 2.5 if compact else 3.2)
+                has_s_map = "size" in merged_aes
+                s_min = s_max = 0.0
+                r_lo, r_hi = (2.2, 6.0)
+                if has_s_map:
+                    sz_scale = self.scales.get("size")
+                    if sz_scale is not None and isinstance(sz_scale.params.get("range"), (list, tuple)) and len(sz_scale.params["range"]) >= 2:
+                        r_lo, r_hi = float(sz_scale.params["range"][0]), float(sz_scale.params["range"][1])
+                    svals = []
+                    for r in recs:
+                        sv = r.get("size")
+                        if not _is_scalar_na(sv):
+                            try:
+                                svals.append(float(sv))
+                            except Exception:
+                                pass
+                    if svals:
+                        s_min, s_max = min(svals), max(svals)
                 for r in recs:
                     pan = str(r.get("PANEL", default_pan) or default_pan)
                     if pan not in panel_boxes:
@@ -992,8 +1113,19 @@ class GGTree:
                         continue
                     px, py = map_pt(float(r["x"]), float(r["y"]), panel=pan)
                     rc = cmap_fn(r.get("color", r.get("colour"))) if cmap_fn else _resolve_color_value(r.get("color", r.get("colour")), color)
-                    r_sz = float(r.get("size", size) or size)
-                    r_px = max(r_sz * (1.4 if compact else 1.8), 2.5) if "size" in r else r_default
+                    if has_s_map and not _is_scalar_na(r.get("size")):
+                        try:
+                            sv = float(r["size"])
+                            if s_max > s_min:
+                                mapped_sz = r_lo + (sv - s_min) / (s_max - s_min) * (r_hi - r_lo)
+                            else:
+                                mapped_sz = (r_lo + r_hi) / 2.0
+                            r_px = mapped_sz * (1.4 if compact else 1.8)
+                        except Exception:
+                            r_px = r_default
+                    else:
+                        r_sz = float(r.get("size", size) or size)
+                        r_px = max(r_sz * (1.4 if compact else 1.8), 2.5) if "size" in r else r_default
                     parts.append(
                         f'<circle cx="{px:.2f}" cy="{py:.2f}" r="{r_px:.2f}" fill="{html.escape(rc, quote=True)}" fill-opacity="{alpha:.2f}" stroke="white" stroke-width="0.5"/>'
                     )
@@ -1007,7 +1139,20 @@ class GGTree:
                     row_px = plot_h / max(len(tip_ys), 1)
                     fsize = max(6, min(fsize, int(row_px * 0.72)))
                 is_box_label = gt in ("label", "label2") or layer.params.get("geom") == "label"
-                for r in ldf.to_records():
+                recs7 = ldf.to_records()
+                cmap7 = None
+                if ("color" in merged_aes or "colour" in merged_aes) and recs7:
+                    c_expr7 = merged_aes.get("color", merged_aes.get("colour"))
+                    cvals7 = [r.get("color", r.get("colour")) for r in recs7]
+                    cmap7, leg7 = _build_value_color_mapper(
+                        cvals7,
+                        layer.params.get("_color_scale") or self.scales.get("color"),
+                        default_color=color,
+                        force_discrete=(str(c_expr7) in ("group", "focus")),
+                    )
+                    _add_legend_unique(legends_to_draw, leg7)
+                seen_tiplabs = set()
+                for r in recs7:
                     pan = str(r.get("PANEL", default_pan) or default_pan)
                     if pan not in panel_boxes:
                         pan = default_pan
@@ -1022,7 +1167,12 @@ class GGTree:
                         continue
                     rx_val, ry_val = float(r["x"]), float(r["y"])
                     px, py = map_pt(rx_val, ry_val, panel=pan)
-                    rc = _resolve_color_value(r.get("color", r.get("colour")), color)
+                    if gt in ("tiplab", "tiplab2"):
+                        tip_key = (pan, round(px, 1), round(py, 1), lbl_clean)
+                        if tip_key in seen_tiplabs:
+                            continue
+                        seen_tiplabs.add(tip_key)
+                    rc = cmap7(r.get("color", r.get("colour"))) if cmap7 else _resolve_color_value(r.get("color", r.get("colour")), color)
                     hj = float(r.get("hjust", layer.params.get("hjust", 0.0)) or 0.0)
                     style_attrs = ""
                     if f_style != "normal":
@@ -1114,7 +1264,7 @@ class GGTree:
                     parts.append(f'<text x="{tx:.2f}" y="{ay + 15:.2f}" text-anchor="middle" font-family="sans-serif" font-size="9.5" fill="#374151">{html.escape(tlbl)}</text>')
 
         # Compact right-side stacked legends for heatmaps / MSA when not in tight grid cell
-        if legends_to_draw and not compact and not is_multi_panel:
+        if legends_to_draw and not compact:
             lx = w - 100
             ly = max(pad_top + 6, 44)
             for leg_idx, leg in enumerate(legends_to_draw):
@@ -1228,6 +1378,13 @@ _DISCRETE_PALETTE: List[str] = [
     "#FF7F00", "#6A3D9A", "#E31A1C", "#B15928",
 ]
 
+_BREWER_PALETTES: Dict[str, List[str]] = {
+    "Set1": ["#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#999999"],
+    "Set2": ["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3"],
+    "Dark2": ["#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666"],
+    "Paired": ["#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00"],
+}
+
 _MSA_PALETTE: Dict[str, str] = {
     "A": "#4DAF4A", "C": "#377EB8", "G": "#FF7F00", "T": "#E41A1C", "U": "#E41A1C",
     "R": "#66C2A5", "N": "#8DA0CB", "D": "#E78AC3", "E": "#A6D854", "Q": "#FFD92F",
@@ -1246,15 +1403,43 @@ _KNOWN_CSS_COLORS = {
 }
 
 
+def _is_direct_css_color(val: Any) -> bool:
+    if _is_scalar_na(val) or val is None:
+        return False
+    s = str(val).strip()
+    if not s:
+        return False
+    return s.startswith("#") or s.startswith("rgb(") or s.startswith("rgba(") or s.lower() in _KNOWN_CSS_COLORS
+
+
 def _resolve_color_value(val: Any, default_color: str = "#222222") -> str:
     if _is_scalar_na(val) or val is None:
         return default_color
     s = str(val).strip()
     if not s:
         return default_color
-    if s.startswith("#") or s.startswith("rgb(") or s.startswith("rgba(") or s.lower() in _KNOWN_CSS_COLORS:
+    if _is_direct_css_color(s):
         return s
     return default_color
+
+
+def _add_legend_unique(legends_list: List[Dict[str, Any]], leg_info: Optional[Dict[str, Any]]) -> None:
+    if not leg_info:
+        return
+    key = (
+        leg_info.get("type"),
+        leg_info.get("title"),
+        tuple(leg_info.get("items", ())) if leg_info.get("type") == "discrete" else (leg_info.get("vmin"), leg_info.get("vmax")),
+    )
+    for existing in legends_list:
+        ekey = (
+            existing.get("type"),
+            existing.get("title"),
+            tuple(existing.get("items", ())) if existing.get("type") == "discrete" else (existing.get("vmin"), existing.get("vmax")),
+        )
+        if ekey == key:
+            return
+    legends_list.append(leg_info)
 
 
 def _hex_to_rgb_tuple(hex_color: str) -> Tuple[int, int, int]:
@@ -1284,6 +1469,7 @@ def _build_value_color_mapper(
     scale_obj: Any = None,
     default_color: str = "#4682B4",
     is_msa: bool = False,
+    force_discrete: bool = False,
 ) -> Tuple[Callable[[Any], str], Optional[Dict[str, Any]]]:
     non_na = [v for v in values if not _is_scalar_na(v) and str(v) != ""]
     if not non_na:
@@ -1293,8 +1479,11 @@ def _build_value_color_mapper(
     sp = getattr(scale_obj, "params", {}) if scale_obj is not None else {}
     legend_title = sp.get("name") or ""
 
+    if scale_obj is None and not is_msa and all(_is_direct_css_color(v) for v in non_na):
+        return (lambda v: _resolve_color_value(v, default_color)), None
+
     is_numeric = all(isinstance(v, (int, float, np.number)) and not isinstance(v, bool) for v in non_na)
-    if is_numeric and st not in ("manual", "brewer", "viridis_d"):
+    if is_numeric and not force_discrete and st not in ("manual", "brewer", "viridis_d"):
         fvals = [float(v) for v in non_na if math.isfinite(float(v))]
         vmin = min(fvals) if fvals else 0.0
         vmax = max(fvals) if fvals else 1.0
@@ -1337,11 +1526,21 @@ def _build_value_color_mapper(
         man = sp["values"]
         if isinstance(man, dict):
             for i, u in enumerate(uniq):
-                cat_map[u] = str(man.get(u, _DISCRETE_PALETTE[i % len(_DISCRETE_PALETTE)]))
+                if u in man:
+                    cat_map[u] = str(man[u])
+                elif u.lstrip("-").isdigit() and int(u) in man:
+                    cat_map[u] = str(man[int(u)])
+                else:
+                    cat_map[u] = _DISCRETE_PALETTE[i % len(_DISCRETE_PALETTE)]
         else:
             man_l = list(man)
             for i, u in enumerate(uniq):
                 cat_map[u] = str(man_l[i % len(man_l)]) if man_l else _DISCRETE_PALETTE[i % len(_DISCRETE_PALETTE)]
+    elif st == "brewer":
+        pname = str(sp.get("palette", "Set1") or "Set1")
+        pal = _BREWER_PALETTES.get(pname, _DISCRETE_PALETTE)
+        for i, u in enumerate(uniq):
+            cat_map[u] = pal[i % len(pal)]
     elif st == "viridis_d":
         opt = str(sp.get("option", "D") or "D").upper()
         stops = _VIRIDIS_PALETTES.get(opt, _VIRIDIS_PALETTES["D"])

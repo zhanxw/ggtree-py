@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 (2026-11-14)
+
+- **Visual documentation gallery (28 figures)**: Added `docs/figures/*.png`, `docs/gallery.md`, and reproducible `docs/generate_doc_figures.py` (`120 DPI`), embedding rendered figures inline across `README.md`, `docs/index.md`, `docs/getting_started.md`, `docs/layouts_and_manipulation.md`, `docs/annotations_and_compositions.md`, and `docs/r_to_python_migration.md`.
+- **SVG renderer & geom enhancements**: Added `geom_col`/`geom_bar` facet bar rendering, stacked and dodged `nodebar` insets, discrete/continuous mapped `aes(color=...)` and rescaled `aes(size=...)` (`scale_size`) support with deduplicated right-side facet legends, per-clade multi-fill support in `geom_balance`, `tiplab` deduplication in `ggdensitree`, and `node_label` preservation in `extract_clade()`.
+
 ## 0.1.1 (2026-11-14)
 
 - **Hosted documentation & links**: Created public GitHub repository (`https://github.com/zhanxw/ggtree.py`) and GitHub Pages documentation site (`https://zhanxw.github.io/ggtree.py/`).

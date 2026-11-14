@@ -498,11 +498,13 @@ def _compute_balance(plot_data: DataFrame, params: Dict[str, Any], layout: str =
     alpha_val = params.get("alpha", 0.5)
 
     rows = []
-    for cid in ch_nodes:
+    for idx, cid in enumerate(ch_nodes):
         pos = get_clade_position_(plot_data, cid, reverse=rev).to_records()[0]
         xmax = pos["xmax"] + extend
         if extendto is not None and not _is_scalar_na(extendto):
             xmax = float(extendto)
+        c_fill = fill_val[idx % len(fill_val)] if isinstance(fill_val, (list, tuple)) and len(fill_val) > 0 else fill_val
+        c_color = color_val[idx % len(color_val)] if isinstance(color_val, (list, tuple)) and len(color_val) > 0 else color_val
         rows.append({
             "xmin": pos["xmin"],
             "xmax": xmax,
@@ -510,9 +512,9 @@ def _compute_balance(plot_data: DataFrame, params: Dict[str, Any], layout: str =
             "ymax": pos["ymax"],
             "node": cid,
             "parent_balance_node": nid,
-            "fill": fill_val,
-            "color": color_val,
-            "colour": color_val,
+            "fill": c_fill,
+            "color": c_color,
+            "colour": c_color,
             "alpha": alpha_val,
             "PANEL": "Tree",
         })
