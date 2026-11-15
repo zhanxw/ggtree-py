@@ -2,13 +2,15 @@
 
 **Grammar of Graphics for Phylogenetic Trees in Python** — an R-compatible Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) ecosystem (`treeio`, `tidytree`, `treelayout`, `ggtree`).
 
-`ggtree-py` provides the `ggtree` Python package (`import ggtree`) with layered `+` plot composition, symbolic `aes(...)` expressions, 12+ phylogenetic tree layouts, evolutionary time-scale mapping (`mrsd`, `revts()`), clade manipulation, heatmaps (`gheatmap`), multiple sequence alignments (`msaplot`), multi-panel facets (`geom_facet`), node pie/bar insets (`nodepie`, `nodebar`, `inset`), tanglegrams (`ggdoubletree`), and built-in vector SVG and PNG rendering with **only `numpy` required at runtime**.
+`ggtree-py` provides the `ggtree` Python package (`import ggtree`) with layered `+` plot composition, symbolic `aes(...)` expressions, 12+ phylogenetic tree layouts, evolutionary time-scale mapping (`mrsd`, `revts()`), clade manipulation, heatmaps (`gheatmap`), multiple sequence alignments (`msaplot`), multi-panel facets (`geom_facet`), node pie/bar insets (`nodepie`, `nodebar`, `inset`), tanglegrams (`ggdoubletree`), `pandas`/`polars`/`pyarrow` DataFrame interoperability, interactive HTML/Jupyter figures (`to_interactive()`, `girafe()`), and built-in vector SVG/PDF and PNG rendering with **only `numpy` required at runtime**.
 
 | 12+ Tree Layouts | BEAST Time Tree + `gheatmap()` |
 | :---: | :---: |
 | [![12+ Phylogenetic Layouts](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/01_all_layouts_grid.png)](https://zhanxw.github.io/ggtree.py/layouts_and_manipulation.html) | [![FluA H3 BEAST + Genotype Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/05_beast_gheatmap.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html) |
 | **Circular Dual-Scale Heatmaps** | **Multi-Panel Facets (`geom_col` + Dot Plot)** |
 | [![Circular Tree with Dual Heatmaps](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/06_circular_stacked_heatmap.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html#multiple-fillcolor-scales-new_scale_fill-new_scale_color) | [![Multi-Panel Facets](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/ac_07_multifacet_panels.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html#3-faceted-data-panels-geom_facet--facet_plot) |
+
+📖 **Read the Online Book:** [**Data Integration, Manipulation and Visualization of Phylogenetic Trees (*ggtree-py* Edition)**](https://zhanxw.github.io/ggtree-py-book/) — 13 chapters, FAQs, API reference, and [**111 reproducible figures**](https://zhanxw.github.io/ggtree-py-book/gallery.html) with collapsible Python code.
 
 Browse all **28 rendered figures** in the [**Visual Gallery**](https://zhanxw.github.io/ggtree.py/gallery.html).
 
@@ -24,7 +26,8 @@ pip install ggtree-py
 
 - **Python** `>= 3.10`
 - **Runtime dependency**: `numpy >= 1.22`
-- **Optional external rasterizer**: [`rsvg-convert`](https://wiki.gnome.org/Projects/LibRsvg) (`librsvg`) on `PATH` for high-resolution rasterization when calling `ggsave("plot.png")` or `plot.to_png()` (falls back automatically to a built-in pure-NumPy RGBA PNG rasterizer when `rsvg-convert` is not installed).
+- **Optional DataFrame extras**: `pip install "ggtree-py[pandas]"`, `"ggtree-py[polars]"`, or `"ggtree-py[dataframe]"` (`pandas`, `polars`, `pyarrow`)
+- **Optional external renderers**: [`rsvg-convert`](https://wiki.gnome.org/Projects/LibRsvg) (`librsvg`) or `cairosvg` (`pip install "ggtree-py[pdf]"`) for external PNG/PDF rendering (automatically falls back to built-in pure-NumPy RGBA PNG rasterization and a pure-Python `%PDF-1.4` vector compiler when neither is installed).
 
 ### Local Development Install
 
@@ -165,7 +168,10 @@ p_tangle = ggdoubletree(ggtree(t1) + geom_tiplab(), ggtree(t2) + geom_tiplab(), 
 
 ## Documentation
 
-Full guides and reference pages are hosted on [**GitHub Pages**](https://zhanxw.github.io/ggtree.py/) and in [`docs/`](https://github.com/zhanxw/ggtree.py/tree/main/docs):
+- 📖 **[Online Book (*treedata-book* Python Edition)](https://zhanxw.github.io/ggtree-py-book/)** — Complete 13-chapter interactive book (Parts I–IV, FAQ Appendix A, API Appendix B)
+- 🖼️ **[Online Book Figure Gallery & Master Index (111 Figures)](https://zhanxw.github.io/ggtree-py-book/gallery.html)** — Searchable gallery with collapsible Python code for every figure
+
+Full guides and reference pages are also hosted on [**GitHub Pages**](https://zhanxw.github.io/ggtree.py/) and in [`docs/`](https://github.com/zhanxw/ggtree.py/tree/main/docs):
 
 - [Documentation Index](https://zhanxw.github.io/ggtree.py/) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/index.md))
 - [Visual Gallery (28 Figures)](https://zhanxw.github.io/ggtree.py/gallery.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/gallery.md))

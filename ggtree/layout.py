@@ -21,8 +21,10 @@ from .dataframe import (
     TblTree,
     _is_scalar_na,
     bind_rows,
+    ensure_dataframe,
     full_join,
     getOption,
+    is_dataframe_like,
 )
 from .tidytree import (
     ancestor,
@@ -1258,8 +1260,8 @@ def tree_layout(
         raw_out = layout(model)
         if isinstance(raw_out, dict) and "xy" in raw_out and not ("x" in raw_out and "y" in raw_out):
             raw_out = raw_out["xy"]
-        if isinstance(raw_out, DataFrame):
-            custom_df = raw_out.copy()
+        if is_dataframe_like(raw_out):
+            custom_df = ensure_dataframe(raw_out).copy()
         else:
             arr = np.asarray(raw_out)
             if arr.ndim == 2 and arr.shape[1] >= 2:
@@ -1395,14 +1397,15 @@ def fortify(
     as_Date = kwargs.pop("as.Date", as_Date)
     root_position = kwargs.pop("root.position", root_position)
 
-    if isinstance(model, DataFrame):
-        if "x" in model and "y" in model:
-            out = TblTree(model.copy(), attrs=model.attrs)
+    if is_dataframe_like(model):
+        model_df = ensure_dataframe(model)
+        if "x" in model_df and "y" in model_df:
+            out = TblTree(model_df.copy(), attrs=model_df.attrs)
             if "layout" not in out.attrs:
                 out.attrs["layout"] = layout if isinstance(layout, str) else "external"
             return out
         return tree_layout(
-            as_phylo(model),
+            as_phylo(model_df),
             layout=layout,
             ladderize=ladderize,
             right=right,
@@ -1490,10 +1493,10 @@ def get_layout(plot: Any) -> Optional[str]:
     """Retrieve layout string from a ggtree plot or fortified DataFrame (returns None if unknown)."""
     if plot is None:
         return None
-    if isinstance(plot, DataFrame):
-        return plot.attrs.get("layout", None)
-    if hasattr(plot, "data") and isinstance(plot.data, DataFrame) and "layout" in plot.data.attrs:
-        return plot.data.attrs["layout"]
+    if is_dataframe_like(plot):
+        return ensure_dataframe(plot).attrs.get("layout", None)
+    if hasattr(plot, "data") and is_dataframe_like(plot.data) and "layout" in ensure_dataframe(plot.data).attrs:
+        return ensure_dataframe(plot.data).attrs["layout"]
     if hasattr(plot, "layout") and isinstance(plot.layout, str) and plot.layout:
         return plot.layout
     return None
@@ -1504,8 +1507,11 @@ def tip_y_alignment(x: Any, tol: float = 1e-6) -> str:
     Inspect tip y coordinates and return 'ok', 'duplicated', or 'uneven'
     (exact port of tip_y_alignment in R/utilities.R).
     """
-    df = x.data if hasattr(x, "data") and isinstance(x.data, DataFrame) else x
-    if not isinstance(df, DataFrame) or "y" not in df or "isTip" not in df:
+    raw_df = x.data if hasattr(x, "data") and is_dataframe_like(x.data) else x
+    if not is_dataframe_like(raw_df):
+        return "ok"
+    df = ensure_dataframe(raw_df)
+    if "y" not in df or "isTip" not in df:
         return "ok"
     tips_df = df[df["isTip"]]
     y = sorted(float(v) for v in tips_df["y"].tolist() if not _is_scalar_na(v))

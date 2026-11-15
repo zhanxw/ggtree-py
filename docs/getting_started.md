@@ -1,6 +1,6 @@
 # Getting Started & Tree Data I/O
 
-> **Navigation:** [Docs Home](index.md) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+> **Navigation:** [Docs Home](index.md) · [Online Book](https://zhanxw.github.io/ggtree-py-book/) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
 
 ## 1. Reading & Creating Trees (`ggtree.tree`)
 
@@ -148,14 +148,66 @@ base = gg.ggtree(tr) + gg.geom_tippoint(color="#2980B9") + gg.geom_tiplab(offset
 
 ---
 
-## 5. Building, Exporting SVG & PNG
+## 5. Exporting Vector (SVG, PDF), Raster (PNG), & Interactive HTML / Jupyter Figures
 
 - **SVG string**: `svg_text = p.to_svg(width=800, height=600)` (or `_repr_svg_()` for Jupyter notebooks)
+- **True PDF vector export**: `pdf_bytes = p.to_pdf(width=800, height=600)` (uses `cairosvg` → `rsvg-convert` → built-in zero-dependency pure-Python `%PDF-1.4` vector compiler)
 - **PNG bytes**: `png_data = p.to_png(width=800, height=600)`
+- **Interactive HTML & Jupyter (`to_interactive`, `girafe`, `to_html`)**:
+  ```python
+  iv = p.to_interactive(width=860, height=620, title="Interactive Phylogeny")
+  # or: iv = gg.girafe(p, width_svg=8.6, height_svg=6.2)
+  iv  # renders interactive iframe widget in Jupyter notebooks
+  html_doc = p.to_html(width=860, height=620, interactive=True)
+  ```
+  Includes wheel/drag pan & zoom, live search across taxon labels and metadata, hover tooltips on tree nodes and `gheatmap`/`facet_plot` tiles/bars, click-to-highlight clades, double-click internal-node collapse toggle, and SVG/PNG download buttons.
 - **Save to disk (`ggsave`)**:
   ```python
   gg.ggsave("output.svg", plot=p, width=9.0, height=6.5, dpi=100)
   gg.ggsave("output.png", plot=p, width=9.0, height=6.5, dpi=100)
-  gg.ggsave("output.html", plot=p, width=9.0, height=6.5)
+  gg.ggsave("output.pdf", plot=p, width=9.0, height=6.5)  # or device="pdf"
+  gg.ggsave("output.html", plot=p, width=9.0, height=6.5, interactive=True)
   ```
-  If no `plot` argument is supplied, `ggsave` uses `last_plot()`.
+  If no `plot` argument is supplied, `ggsave` uses `last_plot()`. Unsupported file formats raise `ValueError`.
+
+---
+
+## 6. Using pandas, polars, and pyarrow DataFrames
+
+`ggtree-py` keeps `numpy` as its only required runtime dependency while duck-typing popular Python DataFrame libraries (`pandas`, `polars`, `pyarrow.Table`, and `__dataframe__` interchange objects) across `%`, `+`, `gheatmap`, `facet_plot`, `nodepie`/`nodebar`, `geom_*`, `tidytree` helpers, and table conversions:
+
+```python
+import pandas as pd
+import ggtree as gg
+
+tr = gg.read_tree(gg.system_file("extdata", "sample.nwk", package="treeio"))
+
+# 1. Index-aligned metadata with pd.Categorical and nullable pd.NA values
+meta = pd.DataFrame(
+    {
+        "habitat": pd.Categorical(["Marine", "Freshwater"] * 6 + ["Marine"]),
+        "longevity": pd.array([12.0, 28.0, pd.NA, 34.0] * 3 + [16.0], dtype="Float64"),
+    },
+    index=tr.tip_label,
+)
+
+p = (
+    gg.ggtree(tr)
+    % meta
+    + gg.geom_tippoint(gg.aes(color="habitat", size="longevity"))
+    + gg.geom_tippoint(
+        data=lambda d: d.to_pandas().query("isTip and longevity >= 25"),
+        color="gold",
+        size=6.0,
+        alpha=0.35,
+    )
+    + gg.geom_tiplab(offset=0.25)
+)
+
+# 2. Pass pandas DataFrames directly to gheatmap / facet_plot / export back via .to_pandas()
+geno = pd.read_csv(gg.system_file("extdata/Genotype.txt", package="ggtree"), sep="\t", index_col=0)
+tbl_pdf = gg.fortify(tr).to_pandas()
+```
+
+See the complete runnable showcase in [examples/pandas_example.py](https://github.com/zhanxw/ggtree.py/blob/main/examples/pandas_example.py).
+

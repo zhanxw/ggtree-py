@@ -21,7 +21,9 @@ from .dataframe import (
     TblTree,
     _is_scalar_na,
     bind_rows,
+    ensure_dataframe,
     factor,
+    is_dataframe_like,
     left_join,
 )
 from .geoms import (
@@ -123,7 +125,7 @@ def gheatmap(
     ]
     tip_y_map = dict(tip_records)
 
-    # Match rows of df_mat to tree tips via rownames or first column if rownames don't match
+    # Match rows of df_mat to tree tips via rownames or first column / 'label' column if rownames don't match
     rnames = df_mat.rownames
     cols = list(df_mat.columns)
     if not any(rn in tip_y_map for rn in rnames):
@@ -135,6 +137,11 @@ def gheatmap(
             if any(v in tip_y_map for v in first_col_vals):
                 rnames = first_col_vals
                 cols = cols[1:]
+            elif "label" in cols:
+                lbl_vals = [str(v) for v in df_mat["label"].tolist()]
+                if any(v in tip_y_map for v in lbl_vals):
+                    rnames = lbl_vals
+                    cols = [c for c in cols if c != "label"]
 
     if colnames_level is not None:
         cols = [c for c in colnames_level if c in cols]
@@ -379,14 +386,23 @@ class FacetLayer(PlotModifier):
         if self.panel not in out.panels:
             out.panels.append(self.panel)
 
-        df_ext = self.data.copy() if isinstance(self.data, DataFrame) else DataFrame(self.data)
+        df_ext = ensure_dataframe(self.data).copy()
         if len(df_ext) > 0:
             # Join with tip y coordinates from plot.data
             tree_df = out.data
             tips_df = tree_df[tree_df["isTip"]] if "isTip" in tree_df else tree_df
             tip_y_map = {str(r["label"]): float(r["y"]) for r in tips_df.to_records() if not _is_scalar_na(r.get("label"))}
-            id_col = "label" if "label" in df_ext.columns else df_ext.columns[0]
-            ys_aligned = [tip_y_map.get(str(v), None) for v in df_ext[id_col].tolist()]
+            if "label" in df_ext.columns:
+                key_vals = [str(v) for v in df_ext["label"].tolist()]
+            else:
+                col0_vals = [str(v) for v in df_ext[df_ext.columns[0]].tolist()]
+                if any(v in tip_y_map for v in col0_vals):
+                    key_vals = col0_vals
+                elif df_ext._rownames is not None and any(rn in tip_y_map for rn in df_ext._rownames):
+                    key_vals = list(df_ext._rownames)
+                else:
+                    key_vals = col0_vals
+            ys_aligned = [tip_y_map.get(v, None) for v in key_vals]
             df_ext = df_ext.copy()
             if "y" not in df_ext:
                 df_ext["y"] = ys_aligned
@@ -455,8 +471,45 @@ def facet_widths(p: Any, widths: Union[Sequence[float], Dict[str, float]]) -> An
 
 
 # 4. inset, nodebar, nodepie (R/inset.R)
+def _build_node_insets(
+    data: Any,
+    cols: Union[Sequence[int], Sequence[str]],
+    inset_type: str,
+    color: Optional[Dict[str, str]] = None,
+    alpha: float = 1.0,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[int, Dict[str, Any]]:
+    df = ensure_dataframe(data)
+    if isinstance(cols, slice):
+        col_names = list(df.columns[cols])
+    else:
+        col_names = [df.columns[int(c) - 1] if isinstance(c, int) else str(c) for c in cols]
+    has_node_col = "node" in df.columns
+    rnames = df._rownames
+    insets: Dict[int, Dict[str, Any]] = {}
+    for i, r in enumerate(df.to_records()):
+        if has_node_col and not _is_scalar_na(r.get("node")):
+            nid = int(r["node"])
+        elif rnames is not None and i < len(rnames) and str(rnames[i]).lstrip("-").isdigit():
+            nid = int(rnames[i])
+        else:
+            nid = 0
+        vals = {c: 0.0 if _is_scalar_na(r.get(c)) else float(r.get(c, 0.0)) for c in col_names}
+        entry: Dict[str, Any] = {
+            "type": inset_type,
+            "node": nid,
+            "values": vals,
+            "color": color,
+            "alpha": alpha,
+        }
+        if extra:
+            entry.update(extra)
+        insets[nid] = entry
+    return insets
+
+
 def nodebar(
-    data: DataFrame,
+    data: Any,
     cols: Union[Sequence[int], Sequence[str]],
     color: Optional[Dict[str, str]] = None,
     alpha: float = 1.0,
@@ -465,28 +518,18 @@ def nodebar(
     """
     Generate bar chart inset definitions for tree nodes (exact port of ggtree::nodebar in R/inset.R).
     """
-    df = data if isinstance(data, DataFrame) else DataFrame(data)
-    if isinstance(cols, slice):
-        col_names = list(df.columns[cols])
-    else:
-        col_names = [df.columns[int(c) - 1] if isinstance(c, int) else str(c) for c in cols]
-    insets: Dict[int, Dict[str, Any]] = {}
-    for r in df.to_records():
-        nid = int(r.get("node", 0))
-        vals = {c: float(r.get(c, 0.0) or 0.0) for c in col_names}
-        insets[nid] = {
-            "type": "bar",
-            "node": nid,
-            "values": vals,
-            "color": color,
-            "alpha": alpha,
-            "position": position,
-        }
-    return insets
+    return _build_node_insets(
+        data,
+        cols,
+        inset_type="bar",
+        color=color,
+        alpha=alpha,
+        extra={"position": position},
+    )
 
 
 def nodepie(
-    data: DataFrame,
+    data: Any,
     cols: Union[Sequence[int], Sequence[str]],
     color: Optional[Dict[str, str]] = None,
     alpha: float = 1.0,
@@ -494,23 +537,13 @@ def nodepie(
     """
     Generate pie chart inset definitions for tree nodes (exact port of ggtree::nodepie in R/inset.R).
     """
-    df = data if isinstance(data, DataFrame) else DataFrame(data)
-    if isinstance(cols, slice):
-        col_names = list(df.columns[cols])
-    else:
-        col_names = [df.columns[int(c) - 1] if isinstance(c, int) else str(c) for c in cols]
-    insets: Dict[int, Dict[str, Any]] = {}
-    for r in df.to_records():
-        nid = int(r.get("node", 0))
-        vals = {c: float(r.get(c, 0.0) or 0.0) for c in col_names}
-        insets[nid] = {
-            "type": "pie",
-            "node": nid,
-            "values": vals,
-            "color": color,
-            "alpha": alpha,
-        }
-    return insets
+    return _build_node_insets(
+        data,
+        cols,
+        inset_type="pie",
+        color=color,
+        alpha=alpha,
+    )
 
 
 def inset(
@@ -559,13 +592,13 @@ def ggdensitree(
     if data is None:
         return GGTree(layout=layout, mapping=mapping)
 
-    if isinstance(data, DataFrame):
-        trees_f = [data.copy()]
+    if is_dataframe_like(data):
+        trees_f = [ensure_dataframe(data).copy()]
     elif isinstance(data, (list, tuple, MultiPhylo)):
         trees_f = []
         for idx, item in enumerate(data, 1):
-            if isinstance(item, DataFrame):
-                d = item.copy()
+            if is_dataframe_like(item):
+                d = ensure_dataframe(item).copy()
             else:
                 d = fortify(item, layout=layout)
             if "tree" not in d:
@@ -1309,9 +1342,20 @@ class PlotList:
             return PlotList(all_p, ncol=len(all_p), nrow=1)
         return PlotList([self, other], ncol=2, nrow=1)
 
-    def to_svg(self, width: int = 800, height: int = 600, _in_grid: bool = False) -> str:
+    def to_svg(
+        self,
+        width: int = 800,
+        height: int = 600,
+        _in_grid: bool = False,
+        _interactive_overlay: bool = False,
+    ) -> str:
         from .plot import render_plotlist_svg
-        return render_plotlist_svg(self, width=width, height=height)
+        return render_plotlist_svg(
+            self,
+            width=width,
+            height=height,
+            _interactive_overlay=_interactive_overlay,
+        )
 
     def _render_rgba(self, width: int = 800, height: int = 600) -> np.ndarray:
         from .plot import render_plotlist_rgba
@@ -1321,9 +1365,59 @@ class PlotList:
         from .plot import render_plotlist_png
         return render_plotlist_png(self, width=width, height=height)
 
-    def save(self, filename: str, width: float = 8.0, height: float = 6.0, dpi: int = 100) -> str:
+    def to_pdf(
+        self,
+        width: int = 800,
+        height: int = 600,
+        page_width_pt: Optional[float] = None,
+        page_height_pt: Optional[float] = None,
+    ) -> bytes:
+        from .export import svg_to_pdf_bytes
+        return svg_to_pdf_bytes(
+            self.to_svg(width=width, height=height),
+            width=width,
+            height=height,
+            page_width_pt=page_width_pt,
+            page_height_pt=page_height_pt,
+        )
+
+    def to_html(
+        self,
+        width: int = 860,
+        height: int = 620,
+        interactive: bool = True,
+        full_html: bool = True,
+        title: Optional[str] = None,
+    ) -> str:
+        from .export import render_interactive_html
+        return render_interactive_html(
+            self,
+            width=width,
+            height=height,
+            interactive=interactive,
+            full_html=full_html,
+            title=title,
+        )
+
+    def to_interactive(
+        self,
+        width: int = 860,
+        height: int = 620,
+        title: Optional[str] = None,
+    ) -> Any:
+        from .export import InteractivePlot
+        return InteractivePlot(self, width=width, height=height, title=title)
+
+    def save(
+        self,
+        filename: str,
+        width: float = 8.0,
+        height: float = 6.0,
+        dpi: int = 100,
+        **kwargs: Any,
+    ) -> str:
         from .plot import ggsave
-        return ggsave(filename, plot=self, width=width, height=height, dpi=dpi)
+        return ggsave(filename, plot=self, width=width, height=height, dpi=dpi, **kwargs)
 
     def _repr_svg_(self) -> str:
         return self.to_svg()

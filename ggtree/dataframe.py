@@ -92,17 +92,24 @@ def _get_rng() -> np.random.Generator:
 
 
 def is_na(val: Any) -> Union[bool, "ColumnSeries", np.ndarray]:
-    """Check whether value(s) are NA / None / NaN."""
+    """Check whether value(s) are NA / None / NaN / pd.NA / pd.NaT."""
     if isinstance(val, ColumnSeries):
         return val.isna()
+    if _is_series_like(val):
+        return ColumnSeries(val).isna()
     if isinstance(val, (list, tuple, np.ndarray, Factor)):
         return ColumnSeries(list(val)).isna()
-    if val is None:
+    if val is None or type(val).__name__ in ("NAType", "NaTType"):
         return True
+    if isinstance(val, np.datetime64):
+        return bool(np.isnat(val))
     if isinstance(val, (float, np.floating)):
         return bool(math.isnan(float(val)))
     try:
-        if val != val:  # NaN check
+        neq = val != val
+        if type(neq).__name__ == "NAType":
+            return True
+        if neq:  # NaN check
             return True
     except Exception:
         pass
@@ -110,16 +117,155 @@ def is_na(val: Any) -> Union[bool, "ColumnSeries", np.ndarray]:
 
 
 def _is_scalar_na(val: Any) -> bool:
-    if val is None:
+    if val is None or type(val).__name__ in ("NAType", "NaTType"):
         return True
+    if isinstance(val, np.datetime64):
+        return bool(np.isnat(val))
     if isinstance(val, (float, np.floating)):
         return bool(math.isnan(float(val)))
     if isinstance(val, str) and val == "<NA>":
         return True
     try:
-        return bool(val != val)
+        neq = val != val
+        if type(neq).__name__ == "NAType":
+            return True
+        return bool(neq)
     except Exception:
         return False
+
+
+def _clean_external_scalar(val: Any) -> Any:
+    """Normalize pandas/polars/pyarrow scalar NA sentinels and numpy scalars."""
+    if val is None or type(val).__name__ in ("NAType", "NaTType"):
+        return None
+    if isinstance(val, np.datetime64):
+        return None if np.isnat(val) else val.item()
+    if isinstance(val, np.generic):
+        if isinstance(val, np.floating) and math.isnan(float(val)):
+            return float("nan")
+        return val.item()
+    return val
+
+
+def is_dataframe_like(obj: Any) -> bool:
+    """
+    Return True for ggtree.DataFrame or external DataFrame objects
+    (pandas, polars, pyarrow.Table/RecordBatch, modin, cudf, geopandas, or __dataframe__ interchange).
+    Does not require external libraries to be installed.
+    """
+    if isinstance(obj, DataFrame):
+        return True
+    if obj is None or isinstance(obj, (str, bytes, dict, list, tuple, np.ndarray, ColumnSeries, Factor)):
+        return False
+    if hasattr(obj, "layers") or type(obj).__name__ in (
+        "Phylo",
+        "TreeData",
+        "MultiPhylo",
+        "TreeDataList",
+        "Hclust",
+    ):
+        return False
+    # pandas / modin / cudf / geopandas DataFrame
+    if hasattr(obj, "columns") and hasattr(obj, "to_dict"):
+        return True
+    # polars DataFrame
+    if hasattr(obj, "columns") and hasattr(obj, "to_dicts") and hasattr(obj, "schema"):
+        return True
+    # pyarrow Table / RecordBatch
+    if hasattr(obj, "column_names") and hasattr(obj, "to_pydict"):
+        return True
+    # Python DataFrame Interchange Protocol (__dataframe__)
+    df_proto = getattr(obj, "__dataframe__", None)
+    if callable(df_proto):
+        return True
+    return False
+
+
+def _is_series_like(obj: Any) -> bool:
+    """Return True for external 1D Series / Index / Categorical / Array objects."""
+    if obj is None or isinstance(obj, (DataFrame, ColumnSeries, Factor, str, bytes, dict, list, tuple, np.ndarray)):
+        return False
+    if is_dataframe_like(obj):
+        return False
+    if hasattr(obj, "layers") or type(obj).__name__ in (
+        "Phylo",
+        "TreeData",
+        "MultiPhylo",
+        "TreeDataList",
+        "Hclust",
+    ):
+        return False
+    tname = type(obj).__name__
+    if tname in (
+        "Series",
+        "Index",
+        "RangeIndex",
+        "CategoricalIndex",
+        "DatetimeIndex",
+        "MultiIndex",
+        "Int64Index",
+        "Float64Index",
+        "StringIndex",
+        "Categorical",
+        "Array",
+        "ChunkedArray",
+        "IntegerArray",
+        "FloatingArray",
+        "BooleanArray",
+        "StringArray",
+        "ArrowExtensionArray",
+    ):
+        return True
+    if hasattr(obj, "to_list") and hasattr(obj, "dtype") and not hasattr(obj, "columns"):
+        return True
+    if hasattr(obj, "to_pylist") and not hasattr(obj, "column_names"):
+        return True
+    if hasattr(obj, "tolist") and hasattr(obj, "dtype") and getattr(obj, "ndim", 1) == 1 and not hasattr(obj, "columns"):
+        return True
+    return False
+
+
+def _series_to_list_and_levels(s: Any) -> Tuple[List[Any], Optional[List[Any]]]:
+    """Extract Python value list and optional ordered category levels from a Series/Categorical/Index."""
+    levels: Optional[List[Any]] = None
+    try:
+        if hasattr(s, "categories") and hasattr(s, "codes"):
+            levels = [_clean_external_scalar(x) for x in list(s.categories)]
+        else:
+            cat = getattr(s, "cat", None)
+            if cat is not None:
+                if hasattr(cat, "categories"):
+                    levels = [_clean_external_scalar(x) for x in list(cat.categories)]
+                elif hasattr(cat, "get_categories"):
+                    cats_obj = cat.get_categories()
+                    raw_cats = cats_obj.to_list() if hasattr(cats_obj, "to_list") else list(cats_obj)
+                    levels = [_clean_external_scalar(x) for x in raw_cats]
+    except Exception:
+        levels = None
+
+    if hasattr(s, "tolist"):
+        raw = s.tolist()
+    elif hasattr(s, "to_list"):
+        raw = s.to_list()
+    elif hasattr(s, "to_pylist"):
+        raw = s.to_pylist()
+    else:
+        raw = list(s)
+
+    vals = [
+        None if (levels is not None and _is_scalar_na(v)) else _clean_external_scalar(v)
+        for v in raw
+    ]
+    return vals, levels
+
+
+def ensure_dataframe(obj: Any) -> "DataFrame":
+    """Return obj if already a ggtree.DataFrame, else convert external DataFrame-like input."""
+    if isinstance(obj, DataFrame):
+        return obj
+    if obj is None:
+        return DataFrame()
+    return DataFrame(obj)
 
 
 class Factor:
@@ -132,18 +278,30 @@ class Factor:
         labels: Optional[Sequence[Any]] = None,
         ordered: bool = False,
     ):
-        raw = list(values)
+        ext_levels: Optional[List[Any]] = None
+        if _is_series_like(values):
+            raw, ext_levels = _series_to_list_and_levels(values)
+            if hasattr(values, "cat") and getattr(values.cat, "ordered", False):
+                ordered = ordered or bool(values.cat.ordered)
+            elif hasattr(values, "ordered") and bool(getattr(values, "ordered", False)):
+                ordered = ordered or bool(values.ordered)
+        else:
+            raw = [_clean_external_scalar(v) for v in values]
+
         if levels is None:
-            seen = []
-            for v in raw:
-                if not _is_scalar_na(v) and v not in seen:
-                    seen.append(v)
-            # Sort levels naturally as strings/numbers like R's factor()
-            try:
-                seen = sorted(seen, key=lambda x: (0, float(x)) if str(x).replace(".", "", 1).replace("-", "", 1).isdigit() else (1, str(x)))
-            except Exception:
-                seen = sorted(seen, key=str)
-            self.levels = [str(x) if not isinstance(x, (int, float, str)) else x for x in seen]
+            if ext_levels is not None:
+                self.levels = list(ext_levels)
+            else:
+                seen = []
+                for v in raw:
+                    if not _is_scalar_na(v) and v not in seen:
+                        seen.append(v)
+                # Sort levels naturally as strings/numbers like R's factor()
+                try:
+                    seen = sorted(seen, key=lambda x: (0, float(x)) if str(x).replace(".", "", 1).replace("-", "", 1).isdigit() else (1, str(x)))
+                except Exception:
+                    seen = sorted(seen, key=str)
+                self.levels = [str(x) if not isinstance(x, (int, float, str)) else x for x in seen]
         else:
             self.levels = list(levels)
 
@@ -213,16 +371,22 @@ class ColumnSeries:
             self._data = list(data.values)
             self.name = name
             self.levels = list(levels) if levels is not None else list(data.levels)
+        elif _is_series_like(data):
+            vals, cat_lvls = _series_to_list_and_levels(data)
+            self._data = vals
+            raw_name = getattr(data, "name", None)
+            self.name = name if name is not None else (str(raw_name) if raw_name is not None else None)
+            self.levels = list(levels) if levels is not None else cat_lvls
         elif isinstance(data, (str, bytes)):
             self._data = [data]
             self.name = name
             self.levels = list(levels) if levels is not None else None
         elif isinstance(data, Iterable):
-            self._data = list(data)
+            self._data = [_clean_external_scalar(v) for v in data]
             self.name = name
             self.levels = list(levels) if levels is not None else None
         else:
-            self._data = [data]
+            self._data = [_clean_external_scalar(data)]
             self.name = name
             self.levels = list(levels) if levels is not None else None
 
@@ -571,20 +735,88 @@ class DataFrame:
         if rownames is not None and index is None:
             index = rownames
 
-        if data is not None and hasattr(data, "to_dict") and hasattr(data, "columns") and not isinstance(data, DataFrame):
-            # Convert pandas.DataFrame seamlessly
-            for col in data.columns:
-                self._cols[str(col)] = list(data[col].tolist())
-            if hasattr(data, "index") and data.index is not None:
-                self._rownames = [str(x) for x in data.index.tolist()]
-            if hasattr(data, "attrs") and isinstance(data.attrs, dict):
-                self.attrs.update(data.attrs)
-        elif isinstance(data, DataFrame):
+        if isinstance(data, DataFrame):
             for k, v in data._cols.items():
                 self._cols[k] = list(v)
             self._levels = copy.deepcopy(data._levels)
             self._rownames = list(data._rownames) if data._rownames is not None else None
             self.attrs = copy.deepcopy(data.attrs)
+        elif data is not None and hasattr(data, "to_dict") and hasattr(data, "columns"):
+            # Convert pandas / modin / cudf / geopandas DataFrame seamlessly
+            has_iloc = hasattr(data, "iloc")
+            for j, col in enumerate(list(data.columns)):
+                cname = str(col)
+                try:
+                    series = data.iloc[:, j] if has_iloc else data[col]
+                except Exception:
+                    series = data[col]
+                vals, lvls = _series_to_list_and_levels(series)
+                self._cols[cname] = vals
+                if lvls is not None:
+                    self._levels[cname] = lvls
+            idx_obj = getattr(data, "index", None)
+            if idx_obj is not None:
+                is_default_range = (
+                    type(idx_obj).__name__ == "RangeIndex"
+                    and getattr(idx_obj, "start", None) == 0
+                    and getattr(idx_obj, "step", None) == 1
+                    and getattr(idx_obj, "name", None) is None
+                )
+                if not is_default_range:
+                    raw_idx = idx_obj.tolist() if hasattr(idx_obj, "tolist") else list(idx_obj)
+                    self._rownames = [str(_clean_external_scalar(x)) for x in raw_idx]
+            if hasattr(data, "attrs") and isinstance(data.attrs, dict):
+                self.attrs.update(copy.deepcopy(data.attrs))
+        elif data is not None and hasattr(data, "columns") and hasattr(data, "to_dicts") and hasattr(data, "schema"):
+            # Convert polars.DataFrame seamlessly
+            for col in list(data.columns):
+                cname = str(col)
+                vals, lvls = _series_to_list_and_levels(data[col])
+                self._cols[cname] = vals
+                if lvls is not None:
+                    self._levels[cname] = lvls
+        elif data is not None and hasattr(data, "column_names") and hasattr(data, "to_pydict"):
+            # Convert pyarrow.Table / RecordBatch seamlessly
+            pyd = data.to_pydict()
+            for col in list(data.column_names):
+                cname = str(col)
+                self._cols[cname] = [_clean_external_scalar(v) for v in pyd.get(col, [])]
+        elif data is not None and callable(getattr(data, "__dataframe__", None)):
+            # Convert any Python DataFrame Interchange Protocol object
+            converted = False
+            try:
+                import pandas as pd  # type: ignore
+
+                pdf = pd.api.interchange.from_dataframe(data)
+                tmp = DataFrame(pdf)
+                self._cols = tmp._cols
+                self._levels = tmp._levels
+                self._rownames = tmp._rownames
+                self.attrs.update(tmp.attrs)
+                converted = True
+            except Exception:
+                pass
+            if not converted:
+                try:
+                    import pyarrow.interchange as pai  # type: ignore
+
+                    pa_tbl = pai.from_dataframe(data)
+                    tmp = DataFrame(pa_tbl)
+                    self._cols = tmp._cols
+                    self._levels = tmp._levels
+                    converted = True
+                except Exception:
+                    pass
+            if not converted:
+                if hasattr(data, "to_dict"):
+                    d_raw = data.to_dict()
+                    if isinstance(d_raw, dict):
+                        self._init_from_dict({str(k): v for k, v in d_raw.items()})
+                        converted = True
+                if not converted:
+                    raise TypeError(
+                        f"Cannot convert __dataframe__ object of type {type(data).__name__} without pandas or pyarrow installed."
+                    )
         elif isinstance(data, dict):
             self._init_from_dict(data)
         elif isinstance(data, (list, tuple, np.ndarray)):
@@ -630,10 +862,16 @@ class DataFrame:
                 if v.levels is not None:
                     self._levels[k] = list(v.levels)
                 lst = list(v._data)
+            elif _is_series_like(v):
+                vals, cat_lvls = _series_to_list_and_levels(v)
+                if cat_lvls is not None:
+                    self._levels[k] = cat_lvls
+                lst = vals
             elif isinstance(v, (list, tuple, np.ndarray)):
-                lst = list(v.tolist() if isinstance(v, np.ndarray) else v)
+                raw_lst = v.tolist() if isinstance(v, np.ndarray) else v
+                lst = [_clean_external_scalar(item) for item in raw_lst]
             else:
-                lst = [v]
+                lst = [_clean_external_scalar(v)]
             processed[k] = lst
             if len(lst) > max_len:
                 max_len = len(lst)
@@ -839,10 +1077,16 @@ class DataFrame:
                 if value.levels is not None:
                     self._levels[col_name] = list(value.levels)
                 lst = list(value._data)
+            elif _is_series_like(value):
+                vals, cat_lvls = _series_to_list_and_levels(value)
+                if cat_lvls is not None:
+                    self._levels[col_name] = cat_lvls
+                lst = vals
             elif isinstance(value, (list, tuple, np.ndarray)):
-                lst = list(value.tolist() if isinstance(value, np.ndarray) else value)
+                raw_lst = value.tolist() if isinstance(value, np.ndarray) else value
+                lst = [_clean_external_scalar(item) for item in raw_lst]
             else:
-                lst = [value] * max(1, n)
+                lst = [_clean_external_scalar(value)] * max(1, n)
             if n > 0 and len(lst) == 1 and n > 1:
                 lst = lst * n
             self._cols[col_name] = lst
@@ -905,13 +1149,71 @@ class DataFrame:
             return self.to_records()
         return {k: list(v) for k, v in self._cols.items()}
 
-    def to_pandas(self) -> Any:
-        import pandas as pd  # type: ignore
+    def to_pandas(self, categorical: bool = False) -> Any:
+        """Convert to a pandas.DataFrame (optionally preserving Factor levels as pd.Categorical)."""
+        try:
+            import pandas as pd  # type: ignore
+        except ImportError as exc:
+            raise ImportError(
+                "pandas is required for DataFrame.to_pandas(). Install with `pip install pandas`."
+            ) from exc
         df = pd.DataFrame(self.to_dict())
+        if categorical and self._levels:
+            for col, lvls in self._levels.items():
+                if col in df.columns and lvls:
+                    vals = self._cols[col]
+                    lvl_set = set(lvls)
+                    vals_conv: List[Any] = []
+                    for v in vals:
+                        if _is_scalar_na(v):
+                            vals_conv.append(None)
+                        elif v in lvl_set:
+                            vals_conv.append(v)
+                        elif str(v) in lvl_set:
+                            vals_conv.append(str(v))
+                        else:
+                            vals_conv.append(v)
+                    df[col] = pd.Categorical(vals_conv, categories=list(lvls), ordered=False)
         if self._rownames is not None and len(self._rownames) == len(self):
             df.index = self._rownames
-        df.attrs.update(self.attrs)
+        if self.attrs:
+            df.attrs.update(self.attrs)
         return df
+
+    def to_polars(self) -> Any:
+        """Convert to a polars.DataFrame."""
+        try:
+            import polars as pl  # type: ignore
+        except ImportError as exc:
+            raise ImportError(
+                "polars is required for DataFrame.to_polars(). Install with `pip install polars`."
+            ) from exc
+        return pl.DataFrame(self.to_dict(), strict=False)
+
+    def to_arrow(self) -> Any:
+        """Convert to a pyarrow.Table."""
+        try:
+            import pyarrow as pa  # type: ignore
+        except ImportError as exc:
+            raise ImportError(
+                "pyarrow is required for DataFrame.to_arrow(). Install with `pip install pyarrow`."
+            ) from exc
+        return pa.table(self.to_dict())
+
+    @classmethod
+    def from_pandas(cls, df: Any) -> "DataFrame":
+        """Create a ggtree DataFrame from a pandas.DataFrame."""
+        return cls(df)
+
+    @classmethod
+    def from_polars(cls, df: Any) -> "DataFrame":
+        """Create a ggtree DataFrame from a polars.DataFrame."""
+        return cls(df)
+
+    @classmethod
+    def from_arrow(cls, table: Any) -> "DataFrame":
+        """Create a ggtree DataFrame from a pyarrow.Table."""
+        return cls(table)
 
     def head(self, n: int = 6) -> "DataFrame":
         return self._slice_rows(slice(0, n))
@@ -999,8 +1301,9 @@ def c(*args: Any, **kwargs: Any) -> Any:
         return dict(kwargs)
     out: List[Any] = []
     for a in args:
-        if isinstance(a, (list, tuple, np.ndarray, ColumnSeries, Factor)):
-            for item in a:
+        if isinstance(a, (list, tuple, np.ndarray, ColumnSeries, Factor)) or _is_series_like(a):
+            vals = _series_to_list_and_levels(a)[0] if _is_series_like(a) else a
+            for item in vals:
                 out.append(item)
         else:
             out.append(a)
@@ -1127,7 +1430,7 @@ def match(x: Iterable[Any], table: Iterable[Any], nomatch: Any = None) -> List[A
 
 
 # dplyr-style verbs
-def mutate(df: DataFrame, _extra_env: Optional[Dict[str, Any]] = None, **kwargs: Any) -> DataFrame:
+def mutate(df: Any, _extra_env: Optional[Dict[str, Any]] = None, **kwargs: Any) -> DataFrame:
     """R dplyr::mutate equivalent."""
     import inspect
     from .aes import SymExpr, eval_expr
@@ -1137,7 +1440,7 @@ def mutate(df: DataFrame, _extra_env: Optional[Dict[str, Any]] = None, **kwargs:
         if frame is not None and frame.f_back is not None:
             extra_env.update(frame.f_back.f_globals)
             extra_env.update(frame.f_back.f_locals)
-    out = df.copy()
+    out = ensure_dataframe(df).copy()
     for k, expr in kwargs.items():
         if isinstance(expr, SymExpr):
             out[k] = expr.eval(out)
@@ -1153,7 +1456,7 @@ def mutate(df: DataFrame, _extra_env: Optional[Dict[str, Any]] = None, **kwargs:
     return out
 
 
-def filter(df: DataFrame, *conditions: Any, _extra_env: Optional[Dict[str, Any]] = None, **kwargs: Any) -> DataFrame:
+def filter(df: Any, *conditions: Any, _extra_env: Optional[Dict[str, Any]] = None, **kwargs: Any) -> DataFrame:
     """R dplyr::filter equivalent."""
     import inspect
     from .aes import SymExpr, eval_subset
@@ -1163,7 +1466,7 @@ def filter(df: DataFrame, *conditions: Any, _extra_env: Optional[Dict[str, Any]]
         if frame is not None and frame.f_back is not None:
             extra_env.update(frame.f_back.f_globals)
             extra_env.update(frame.f_back.f_locals)
-    out = df.copy()
+    out = ensure_dataframe(df).copy()
     for cond in conditions:
         if isinstance(cond, SymExpr):
             mask = eval_subset(out, cond, extra_env=extra_env)
@@ -1179,14 +1482,14 @@ def filter(df: DataFrame, *conditions: Any, _extra_env: Optional[Dict[str, Any]]
     return out
 
 
-def select(df: DataFrame, *cols: str) -> DataFrame:
+def select(df: Any, *cols: str) -> DataFrame:
     """R dplyr::select equivalent."""
-    return df._select_cols(cols)
+    return ensure_dataframe(df)._select_cols(cols)
 
 
-def arrange(df: DataFrame, *cols: str, descending: bool = False) -> DataFrame:
+def arrange(df: Any, *cols: str, descending: bool = False) -> DataFrame:
     """R dplyr::arrange equivalent."""
-    return df.sort_values(list(cols), ascending=not descending)
+    return ensure_dataframe(df).sort_values(list(cols), ascending=not descending)
 
 
 def left_join(x: Any, y: DataFrame, by: Optional[Union[str, Sequence[str], Dict[str, str]]] = None) -> Any:
@@ -1243,11 +1546,50 @@ def _join_dataframes(
     if by is None:
         common = [c for c in df_x.columns if c in df_y.columns]
         if not common:
-            # Try matching first column of y against 'label' or 'node' in x (like %<+%)
-            if "label" in df_x.columns and len(df_y.columns) > 0:
-                by_map = {"label": df_y.columns[0]}
-            elif "node" in df_x.columns and len(df_y.columns) > 0:
-                by_map = {"node": df_y.columns[0]}
+            if len(df_y.columns) == 0:
+                raise ValueError("No columns in right DataFrame for join")
+            col0 = df_y.columns[0]
+            col0_vals = [v for v in df_y[col0].tolist() if not _is_scalar_na(v)]
+            labels_set = (
+                {str(v) for v in df_x["label"].tolist() if not _is_scalar_na(v)}
+                if "label" in df_x.columns
+                else set()
+            )
+            nodes_set = (
+                {v for v in df_x["node"].tolist() if not _is_scalar_na(v)}
+                if "node" in df_x.columns
+                else set()
+            )
+            col0_label_hits = sum(1 for v in col0_vals if str(v) in labels_set)
+            col0_node_hits = sum(1 for v in col0_vals if v in nodes_set)
+
+            if col0_label_hits > 0 and col0_label_hits >= col0_node_hits:
+                by_map = {"label": col0}
+            elif col0_node_hits > 0:
+                by_map = {"node": col0}
+            elif df_y._rownames is not None and len(df_y._rownames) == len(df_y):
+                rn_vals = df_y._rownames
+                rn_label_hits = sum(1 for v in rn_vals if v in labels_set)
+                rn_node_vals = [int(v) if str(v).isdigit() else v for v in rn_vals]
+                rn_node_hits = sum(1 for v in rn_node_vals if v in nodes_set)
+                if rn_label_hits > 0 and rn_label_hits >= rn_node_hits:
+                    df_y = df_y.copy()
+                    df_y[".__rowname_key__"] = list(rn_vals)
+                    by_map = {"label": ".__rowname_key__"}
+                elif rn_node_hits > 0:
+                    df_y = df_y.copy()
+                    df_y[".__rowname_key__"] = rn_node_vals
+                    by_map = {"node": ".__rowname_key__"}
+                elif "label" in df_x.columns:
+                    by_map = {"label": col0}
+                elif "node" in df_x.columns:
+                    by_map = {"node": col0}
+                else:
+                    raise ValueError("No common columns for join")
+            elif "label" in df_x.columns:
+                by_map = {"label": col0}
+            elif "node" in df_x.columns:
+                by_map = {"node": col0}
             else:
                 raise ValueError("No common columns for join")
         else:
@@ -1324,9 +1666,10 @@ def _join_dataframes(
     return res
 
 
-def bind_rows(*dfs: DataFrame) -> DataFrame:
+def bind_rows(*dfs: Any) -> DataFrame:
     """R dplyr::bind_rows equivalent."""
-    valid = [d for d in dfs if d is not None and len(d) > 0]
+    valid = [ensure_dataframe(d) for d in dfs if d is not None]
+    valid = [d for d in valid if len(d) > 0]
     if not valid:
         return DataFrame()
     all_cols: List[str] = []
@@ -1342,8 +1685,9 @@ def bind_rows(*dfs: DataFrame) -> DataFrame:
     return cls(rows, columns=all_cols, attrs=valid[0].attrs)
 
 
-def unnest(df: DataFrame, cols: Union[str, Sequence[str]]) -> DataFrame:
+def unnest(df: Any, cols: Union[str, Sequence[str]]) -> DataFrame:
     """R tidyr::unnest equivalent."""
+    df = ensure_dataframe(df)
     if isinstance(cols, str):
         cols = [cols]
     col_names = [df._resolve_col(c) for c in cols]

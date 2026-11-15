@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from .dataframe import DataFrame, TblTree, NA, is_na, _is_scalar_na, getOption
+from .dataframe import DataFrame, TblTree, NA, is_na, _is_scalar_na, getOption, ensure_dataframe, is_dataframe_like
 from .tree import Phylo, TreeData, MultiPhylo, TreeDataList
 from .layout import fortify, get_clade_position_, check_reverse
 from .aes import Aes, aes, modifyList, eval_expr, eval_subset
@@ -25,6 +25,13 @@ from .themes_scales import (
     coord_polar, coord_flip, revts
 )
 from .geoms import Layer, LayerList, geom_tree
+from .export import (
+    InteractivePlot,
+    append_interactive_node_overlay,
+    format_tile_bar_tooltip,
+    render_interactive_html,
+    svg_to_pdf_bytes,
+)
 
 
 _LAST_PLOT: Optional["GGTree"] = None
@@ -279,8 +286,7 @@ class GGTree:
     # ------------------------------------------------------------------
     def attach_data(self, df: Any) -> "GGTree":
         """Implements R's `p %<+% df`: left-joins taxon/node metadata into plot data."""
-        if not isinstance(df, DataFrame):
-            df = DataFrame(df)
+        df = ensure_dataframe(df)
         p = self.copy()
         if len(df) == 0 or len(df.columns) == 0:
             return p
@@ -293,23 +299,48 @@ class GGTree:
         match_label = sum(1 for v in first_vals if not _is_scalar_na(v) and str(v) in labels_set)
         match_node = sum(1 for v in first_vals if not _is_scalar_na(v) and v in nodes_set)
 
+        join_source_col: str = first_col
         if "node" in df.columns and match_node > 0 and first_col == "node":
             key_col = "node"
-        elif match_label >= match_node or match_label > 0:
+        elif match_label >= match_node and match_label > 0:
             key_col = "label"
+        elif match_node > 0:
+            key_col = "node"
+        elif "label" in df.columns and any(not _is_scalar_na(v) and str(v) in labels_set for v in df["label"].tolist()):
+            key_col = "label"
+            join_source_col = "label"
+        elif "node" in df.columns and any(not _is_scalar_na(v) and v in nodes_set for v in df["node"].tolist()):
+            key_col = "node"
+            join_source_col = "node"
+        elif df._rownames is not None and len(df._rownames) == len(df):
+            rn_label_hits = sum(1 for rn in df._rownames if rn in labels_set)
+            rn_node_vals = [int(rn) if rn.lstrip("-").isdigit() else rn for rn in df._rownames]
+            rn_node_hits = sum(1 for rv in rn_node_vals if rv in nodes_set)
+            if rn_label_hits > 0 and rn_label_hits >= rn_node_hits:
+                key_col = "label"
+                df = df.copy()
+                df[".__rowname_key__"] = list(df._rownames)
+                join_source_col = ".__rowname_key__"
+            elif rn_node_hits > 0:
+                key_col = "node"
+                df = df.copy()
+                df[".__rowname_key__"] = rn_node_vals
+                join_source_col = ".__rowname_key__"
+            else:
+                key_col = "label" if match_label >= match_node else "node"
         else:
             key_col = "node"
 
         lookup: Dict[Any, Dict[str, Any]] = {}
         for r in df.to_records():
-            k = r.get(first_col)
+            k = r.get(join_source_col)
             if not _is_scalar_na(k):
                 lookup[k] = r
                 lookup[str(k)] = r
 
         p_records = p.data.to_records()
         for col in df.columns:
-            if col == key_col:
+            if col in (key_col, join_source_col, ".__rowname_key__"):
                 continue
             new_vals = []
             for r in p_records:
@@ -322,6 +353,8 @@ class GGTree:
                 else:
                     new_vals.append(r.get(col, None))
             p.data[col] = new_vals
+            if col in df._levels:
+                p.data._levels[col] = list(df._levels[col])
 
         set_last_plot(p)
         return p
@@ -373,7 +406,7 @@ class GGTree:
             return p
         if isinstance(other, (Phylo, TreeData, MultiPhylo, TreeDataList)):
             return self.replace_tree(other)
-        if isinstance(other, DataFrame) or hasattr(other, "to_dict"):
+        if is_dataframe_like(other):
             return self.attach_data(other)
         if isinstance(other, GGTree):
             from .compose import PlotList
@@ -469,7 +502,13 @@ class GGTree:
     # ------------------------------------------------------------------
     # Native SVG / PNG rendering (zero external dependencies)
     # ------------------------------------------------------------------
-    def to_svg(self, width: float = 800, height: float = 600, _in_grid: bool = False) -> str:
+    def to_svg(
+        self,
+        width: float = 800,
+        height: float = 600,
+        _in_grid: bool = False,
+        _interactive_overlay: bool = False,
+    ) -> str:
         """Render the GGTree plot to a standalone SVG string."""
         built = self.build()
         w = max(int(width), 100)
@@ -837,7 +876,13 @@ class GGTree:
                     vals = [r.get("value", r.get("base", r.get("fill"))) for r in recs]
                     scale_obj = layer.params.get("_fill_scale") or (None if self.scales.get("fill") is None else self.scales.get("fill"))
                     is_msa = "base" in ldf.columns or layer.mapping.get("fill") == "base"
-                    color_fn, leg_info = _build_value_color_mapper(vals, scale_obj, default_color=fill, is_msa=is_msa)
+                    color_fn, leg_info = _build_value_color_mapper(
+                        vals,
+                        scale_obj,
+                        default_color=fill,
+                        is_msa=is_msa,
+                        levels=(ldf._levels.get("value") or ldf._levels.get("fill")),
+                    )
                     _add_legend_unique(legends_to_draw, leg_info)
                 else:
                     color_fn = lambda v: _resolve_color_value(v, fill)
@@ -856,8 +901,9 @@ class GGTree:
                     fcol = color_fn(v_raw)
                     if is_polar:
                         d_attr = polar_wedge_d(xc - tw / 2.0, xc + tw / 2.0, yc - th / 2.0, yc + th / 2.0)
+                        tt_tile = format_tile_bar_tooltip(r, kind="tile") if _interactive_overlay else ""
                         parts.append(
-                            f'<path d="{d_attr}" fill="{html.escape(fcol, quote=True)}" stroke="{html.escape(border_c, quote=True)}" stroke-width="0.4"/>'
+                            f'<path d="{d_attr}" fill="{html.escape(fcol, quote=True)}" stroke="{html.escape(border_c, quote=True)}" stroke-width="0.4"{tt_tile}/>'
                         )
                     else:
                         p0 = map_pt(xc - tw / 2.0, yc + th / 2.0, panel=pan)
@@ -865,8 +911,9 @@ class GGTree:
                         rx, ry = min(p0[0], p1[0]), min(p0[1], p1[1])
                         rw, rh = max(abs(p1[0] - p0[0]), 1.2), max(abs(p1[1] - p0[1]), 1.2)
                         sw_tile = "0.2" if len(recs) > 250 else "0.5"
+                        tt_tile = format_tile_bar_tooltip(r, kind="tile") if _interactive_overlay else ""
                         parts.append(
-                            f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" stroke="{html.escape(border_c, quote=True)}" stroke-width="{sw_tile}"/>'
+                            f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" stroke="{html.escape(border_c, quote=True)}" stroke-width="{sw_tile}"{tt_tile}/>'
                         )
 
             # 2b. Horizontal/facet column & bar charts (geom_col / geom_bar)
@@ -881,6 +928,7 @@ class GGTree:
                         layer.params.get("_fill_scale") or self.scales.get("fill"),
                         default_color=fill,
                         force_discrete=True,
+                        levels=(ldf._levels.get("fill") or self.data._levels.get(str(merged_aes.get("fill", "")))),
                     )
                     _add_legend_unique(legends_to_draw, leg_b)
                 border_b = str(layer.params.get("color", layer.params.get("colour", "white")) or "white")
@@ -899,8 +947,9 @@ class GGTree:
                     rx, ry = min(p0[0], p1[0]), min(p0[1], p1[1])
                     rw, rh = max(abs(p1[0] - p0[0]), 1.2), max(abs(p1[1] - p0[1]), 1.5)
                     fcol = fmap_fn(r.get("fill")) if fmap_fn else _resolve_color_value(r.get("fill"), fill)
+                    tt_bar = format_tile_bar_tooltip(r, kind="col") if _interactive_overlay else ""
                     parts.append(
-                        f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" fill-opacity="{alpha:.2f}" stroke="{html.escape(border_b, quote=True)}" stroke-width="0.4"/>'
+                        f'<rect x="{rx:.2f}" y="{ry:.2f}" width="{rw:.2f}" height="{rh:.2f}" fill="{html.escape(fcol, quote=True)}" fill-opacity="{alpha:.2f}" stroke="{html.escape(border_b, quote=True)}" stroke-width="0.4"{tt_bar}/>'
                     )
 
             # 3. Polygons (collapsed clade triangles, etc.)
@@ -933,6 +982,7 @@ class GGTree:
                         layer.params.get("_color_scale") or self.scales.get("color"),
                         default_color=color,
                         force_discrete=(str(c_expr4) in ("group", "focus")),
+                        levels=(ldf._levels.get("color") or ldf._levels.get("colour") or self.data._levels.get(str(c_expr4))),
                     )
                     _add_legend_unique(legends_to_draw, leg4)
                 for r in recs4:
@@ -1085,6 +1135,7 @@ class GGTree:
                         layer.params.get("_color_scale") or self.scales.get("color"),
                         default_color=color,
                         force_discrete=(str(c_expr6) in ("group", "focus")),
+                        levels=(ldf._levels.get("color") or ldf._levels.get("colour") or self.data._levels.get(str(c_expr6))),
                     )
                     _add_legend_unique(legends_to_draw, leg_info)
                 r_default = max(size * (1.5 if compact else 1.8), 2.5 if compact else 3.2)
@@ -1149,6 +1200,7 @@ class GGTree:
                         layer.params.get("_color_scale") or self.scales.get("color"),
                         default_color=color,
                         force_discrete=(str(c_expr7) in ("group", "focus")),
+                        levels=(ldf._levels.get("color") or ldf._levels.get("colour") or self.data._levels.get(str(c_expr7))),
                     )
                     _add_legend_unique(legends_to_draw, leg7)
                 seen_tiplabs = set()
@@ -1292,6 +1344,15 @@ class GGTree:
                     parts.append(f'<text x="{lx + 16:.1f}" y="{ly + 71:.1f}" font-family="sans-serif" font-size="9" fill="#374151">{leg.get("vmin", 0.0):.2g}</text>')
                     ly += 88
 
+        if _interactive_overlay:
+            append_interactive_node_overlay(
+                parts,
+                self.data,
+                map_pt,
+                layout_str=str(self.layout),
+                is_polar=is_polar,
+                polar_arc_d_fn=polar_arc_d if is_polar else None,
+            )
         parts.append("</svg>")
         return "\n".join(parts)
 
@@ -1352,6 +1413,46 @@ class GGTree:
         if png is not None:
             return png
         return _encode_png_rgba(self._render_rgba(width=width, height=height))
+
+    def to_pdf(
+        self,
+        width: float = 800,
+        height: float = 600,
+        page_width_pt: Optional[float] = None,
+        page_height_pt: Optional[float] = None,
+    ) -> bytes:
+        """Render the plot as a genuine multi-layer vector PDF document."""
+        w = max(int(round(width)), 100)
+        h = max(int(round(height)), 80)
+        svg = self.to_svg(width=w, height=h)
+        return svg_to_pdf_bytes(svg, width=w, height=h, page_width_pt=page_width_pt, page_height_pt=page_height_pt)
+
+    def to_html(
+        self,
+        width: int = 860,
+        height: int = 620,
+        interactive: bool = True,
+        full_html: bool = True,
+        title: Optional[str] = None,
+    ) -> str:
+        """Render the plot as self-contained interactive (or static) HTML."""
+        return render_interactive_html(
+            self,
+            width=width,
+            height=height,
+            interactive=interactive,
+            full_html=full_html,
+            title=title,
+        )
+
+    def to_interactive(
+        self,
+        width: int = 860,
+        height: int = 620,
+        title: Optional[str] = None,
+    ) -> InteractivePlot:
+        """Wrap the plot in a Jupyter-displayable InteractivePlot container."""
+        return InteractivePlot(self, width=width, height=height, title=title)
 
     def save(self, filename: Union[str, Path], width: float = 8, height: float = 6, dpi: int = 100, **kwargs: Any) -> str:
         return ggsave(filename, plot=self, width=width, height=height, dpi=dpi, **kwargs)
@@ -1470,6 +1571,7 @@ def _build_value_color_mapper(
     default_color: str = "#4682B4",
     is_msa: bool = False,
     force_discrete: bool = False,
+    levels: Optional[Sequence[Any]] = None,
 ) -> Tuple[Callable[[Any], str], Optional[Dict[str, Any]]]:
     non_na = [v for v in values if not _is_scalar_na(v) and str(v) != ""]
     if not non_na:
@@ -1511,12 +1613,27 @@ def _build_value_color_mapper(
 
         return map_num, {"type": "continuous", "title": legend_title or "value", "stops": stops, "vmin": vmin, "vmax": vmax}
 
-    uniq: List[str] = []
+    seen_vals: List[str] = []
+    seen_set = set()
     for v in non_na:
         sv = str(v)
-        if sv not in uniq:
-            uniq.append(sv)
-    uniq.sort()
+        if sv not in seen_set:
+            seen_set.add(sv)
+            seen_vals.append(sv)
+    if levels:
+        uniq: List[str] = []
+        uniq_set = set()
+        for lv in levels:
+            slv = str(lv)
+            if slv in seen_set and slv not in uniq_set:
+                uniq_set.add(slv)
+                uniq.append(slv)
+        for sv in seen_vals:
+            if sv not in uniq_set:
+                uniq_set.add(sv)
+                uniq.append(sv)
+    else:
+        uniq = sorted(seen_vals)
 
     cat_map: Dict[str, str] = {}
     if is_msa:
@@ -1646,7 +1763,12 @@ def _encode_png_rgba(img: np.ndarray) -> bytes:
     return b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", ihdr) + png_chunk(b"IDAT", idat) + png_chunk(b"IEND", b"")
 
 
-def render_plotlist_svg(plotlist: Any, width: int = 800, height: int = 600) -> str:
+def render_plotlist_svg(
+    plotlist: Any,
+    width: int = 800,
+    height: int = 600,
+    _interactive_overlay: bool = False,
+) -> str:
     """Render a PlotList grid of GGTree / nested PlotList plots into a combined SVG."""
     w = int(width)
     h = int(height)
@@ -1667,9 +1789,21 @@ def render_plotlist_svg(plotlist: Any, width: int = 800, height: int = 600) -> s
         oy = r * cell_h
         if hasattr(p, "to_svg"):
             if isinstance(p, GGTree):
-                sub_svg = p.to_svg(width=cell_w, height=cell_h, _in_grid=(cell_w < 500 or cell_h < 400))
+                sub_svg = p.to_svg(
+                    width=cell_w,
+                    height=cell_h,
+                    _in_grid=(cell_w < 500 or cell_h < 400),
+                    _interactive_overlay=_interactive_overlay,
+                )
             else:
-                sub_svg = p.to_svg(width=cell_w, height=cell_h)
+                try:
+                    sub_svg = p.to_svg(
+                        width=cell_w,
+                        height=cell_h,
+                        _interactive_overlay=_interactive_overlay,
+                    )
+                except TypeError:
+                    sub_svg = p.to_svg(width=cell_w, height=cell_h)
             inner = sub_svg.split(">", 1)[1].rsplit("</svg>", 1)[0] if "</svg>" in sub_svg else sub_svg
             parts.append(f'<g transform="translate({ox},{oy})">{inner}')
             if labels and idx < len(labels):
@@ -1855,24 +1989,59 @@ def ggsave(
     width: float = 8,
     height: float = 6,
     dpi: int = 100,
+    device: Optional[str] = None,
+    interactive: bool = True,
     **kwargs: Any,
 ) -> str:
-    """Save a GGTree or PlotList object to SVG, PNG, HTML, or PDF."""
+    """Save a GGTree / PlotList / InteractivePlot to SVG, PNG, PDF, or interactive HTML."""
     if plot is None:
         plot = last_plot()
     if plot is None:
         raise ValueError("No plot provided and no last_plot() available.")
     path = Path(filename)
     path.parent.mkdir(parents=True, exist_ok=True)
-    ext = path.suffix.lower()
+    fmt = (str(device).strip().lstrip(".").lower() if device is not None else path.suffix.lower().lstrip("."))
     px_w = int(round(width * dpi))
     px_h = int(round(height * dpi))
-    if ext == ".png" and hasattr(plot, "to_png"):
+    if fmt == "png":
+        if not hasattr(plot, "to_png"):
+            raise TypeError(f"Plot of type {type(plot).__name__} does not support PNG export.")
         path.write_bytes(plot.to_png(width=px_w, height=px_h))
-    elif ext == ".html":
-        svg = plot.to_svg(width=px_w, height=px_h)
-        path.write_text(f"<!DOCTYPE html><html><body style='margin:0'>{svg}</body></html>", encoding="utf-8")
-    else:
+    elif fmt == "pdf":
+        svg_w = max(int(round(width * 100)), 100)
+        svg_h = max(int(round(height * 100)), 80)
+        pw_pt = float(width) * 72.0
+        ph_pt = float(height) * 72.0
+        if hasattr(plot, "to_pdf"):
+            try:
+                pdf_bytes = plot.to_pdf(width=svg_w, height=svg_h, page_width_pt=pw_pt, page_height_pt=ph_pt)
+            except TypeError:
+                pdf_bytes = plot.to_pdf(width=svg_w, height=svg_h)
+        elif hasattr(plot, "to_svg"):
+            pdf_bytes = svg_to_pdf_bytes(
+                plot.to_svg(width=svg_w, height=svg_h),
+                width=svg_w,
+                height=svg_h,
+                page_width_pt=pw_pt,
+                page_height_pt=ph_pt,
+            )
+        else:
+            raise TypeError(f"Plot of type {type(plot).__name__} does not support PDF export.")
+        path.write_bytes(pdf_bytes)
+    elif fmt in ("html", "htm"):
+        html_str = render_interactive_html(
+            plot,
+            width=px_w,
+            height=px_h,
+            interactive=bool(interactive),
+            full_html=True,
+        )
+        path.write_text(html_str, encoding="utf-8")
+    elif fmt == "svg":
         svg = plot.to_svg(width=px_w, height=px_h)
         path.write_text(svg, encoding="utf-8")
+    else:
+        raise ValueError(
+            f"Unsupported output format {fmt!r} for {str(filename)!r}. Supported formats: svg, png, pdf, html."
+        )
     return str(path)

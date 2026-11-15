@@ -23,7 +23,9 @@ from .dataframe import (
     _is_scalar_na,
     _get_rng,
     c,
+    ensure_dataframe,
     full_join,
+    is_dataframe_like,
     left_join,
     tibble,
 )
@@ -458,14 +460,15 @@ def Ntip(x: Any) -> int:
         return len(x.phylo.tip_label)
     if isinstance(x, (MultiPhylo, TreeDataList, list)):
         return [Ntip(item) for item in x]  # type: ignore[return-value]
-    if isinstance(x, DataFrame):
+    if is_dataframe_like(x):
+        x = ensure_dataframe(x)
         if "isTip" in x:
             return int(x["isTip"].sum())
         parents = set(x["parent"].tolist())
         return sum(1 for n in x["node"].tolist() if n not in parents)
     if isinstance(x, Hclust):
         return len(x.labels)
-    if hasattr(x, "data") and isinstance(x.data, DataFrame):
+    if hasattr(x, "data") and is_dataframe_like(x.data):
         return Ntip(x.data)
     raise TypeError(f"Cannot determine Ntip for {type(x)}")
 
@@ -477,14 +480,15 @@ def Nnode(x: Any, internal_only: bool = True, **kwargs: Any) -> int:
         return x.Nnode if internal_only else len(x.tip_label) + x.Nnode
     if isinstance(x, TreeData):
         return Nnode(x.phylo, internal_only=internal_only)
-    if isinstance(x, DataFrame):
+    if is_dataframe_like(x):
+        x = ensure_dataframe(x)
         total = len(x)
         if not internal_only:
             return total
         return total - Ntip(x)
     if isinstance(x, Hclust):
         return len(x.height) if internal_only else len(x.labels) + len(x.height)
-    if hasattr(x, "data") and isinstance(x.data, DataFrame):
+    if hasattr(x, "data") and is_dataframe_like(x.data):
         return Nnode(x.data, internal_only=internal_only)
     raise TypeError(f"Cannot determine Nnode for {type(x)}")
 
@@ -522,11 +526,11 @@ def as_phylo(x: Any, **kwargs: Any) -> Phylo:
         return x.to_phylo(hang=kwargs.get("hang", -1))
     if isinstance(x, str):
         return read_tree(text=x)
-    if hasattr(x, "data") and isinstance(x.data, DataFrame):
+    if hasattr(x, "data") and is_dataframe_like(x.data):
         x = x.data
-    if isinstance(x, DataFrame):
-        # Convert tbl_tree DataFrame back to Phylo (matching tidytree::as.phylo.tbl_tree)
-        df = x.sort_values("node")
+    if is_dataframe_like(x):
+        # Convert tbl_tree / pandas / polars DataFrame back to Phylo (matching tidytree::as.phylo.tbl_tree)
+        df = ensure_dataframe(x).sort_values("node")
         nodes = [int(v) for v in df["node"].tolist()]
         parents = [int(v) for v in df["parent"].tolist()]
         labels = df["label"].tolist() if "label" in df else [f"t{i}" for i in nodes]
@@ -593,11 +597,12 @@ def as_treedata(x: Any, **kwargs: Any) -> TreeData:
         return x.copy()
     if isinstance(x, Phylo):
         return TreeData(phylo=x.copy())
-    if isinstance(x, DataFrame):
-        phy = as_phylo(x)
+    if is_dataframe_like(x):
+        df_x = ensure_dataframe(x)
+        phy = as_phylo(df_x)
         core_cols = {"parent", "node", "branch.length", "label", "isTip", "x", "y", "branch", "angle"}
-        extra_cols = ["node"] + [c for c in x.columns if c not in core_cols]
-        data = x._select_cols(extra_cols) if len(extra_cols) > 1 else DataFrame()
+        extra_cols = ["node"] + [c for c in df_x.columns if c not in core_cols]
+        data = df_x._select_cols(extra_cols) if len(extra_cols) > 1 else DataFrame()
         return TreeData(phylo=phy, data=data)
     raise TypeError(f"Cannot convert {type(x)} to TreeData")
 
@@ -609,8 +614,9 @@ def as_tibble(x: Any, **kwargs: Any) -> TblTree:
     """
     if isinstance(x, TblTree):
         return x.copy()
-    if isinstance(x, DataFrame):
-        return TblTree(x, attrs=x.attrs)
+    if is_dataframe_like(x):
+        df_x = ensure_dataframe(x)
+        return TblTree(df_x, attrs=df_x.attrs)
     if isinstance(x, TreeData):
         res = as_tibble(x.phylo)
         for df_anno in (x.data, x.extraInfo):

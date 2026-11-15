@@ -1,8 +1,10 @@
 # `ggtree-py` Documentation
 
-Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.2`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
+Welcome to the documentation for **`ggtree-py`** (`import ggtree`, version `0.1.3`), a Python port of the Bioconductor [`ggtree`](https://github.com/YuLab-SMU/ggtree) package (`4.3.2`) built with Python (`>= 3.10`) and `numpy`.
 
-[**GitHub Repository**](https://github.com/zhanxw/ggtree.py) · [**PyPI Package**](https://pypi.org/project/ggtree-py/) · [**Visual Gallery (28 Figures)**](gallery.md) · [**Upstream R ggtree**](https://github.com/YuLab-SMU/ggtree)
+[**Online Book**](https://zhanxw.github.io/ggtree-py-book/) · [**Book Gallery (111 Figures)**](https://zhanxw.github.io/ggtree-py-book/gallery.html) · [**GitHub Repository**](https://github.com/zhanxw/ggtree.py) · [**PyPI Package**](https://pypi.org/project/ggtree-py/) · [**Visual Gallery (28 Figures)**](gallery.md) · [**Upstream R ggtree**](https://github.com/YuLab-SMU/ggtree)
+
+> 📖 **Online Book (*treedata-book* Python Edition):** Read [**Data Integration, Manipulation and Visualization of Phylogenetic Trees (*ggtree-py* Edition)**](https://zhanxw.github.io/ggtree-py-book/) for the complete 13-chapter book (Parts I–IV, FAQ Appendix A, API Appendix B) with **111 reproducible `ggtree-py` figures**, figure-attached **collapsed-by-default Python code**, and the searchable **[Book Figure Gallery & Master Index](https://zhanxw.github.io/ggtree-py-book/gallery.html)**.
 
 ## Visual Tour
 
@@ -35,5 +37,6 @@ Explore the complete visual showcase in the **[Visual Gallery](gallery.md)** (`d
 | `ggtree.manipulate` | `collapse`, `expand`, `rotate`, `flip`, `scaleClade`, `viewClade`, `zoomClade`, `open_tree`, `rotate_tree`, `layout_*`, `reroot`, `rescale_tree`, `gzoom`, `label_pad`, `range_format` |
 | `ggtree.compose` | `gheatmap`, `msaplot`, `geom_facet` / `facet_plot`, `facet_widths`, `facet_labeller`, `nodepie`, `nodebar`, `inset`, `ggdensitree`, `as_tanglegram`, `ggdoubletree`, `PlotList`, `multiplot`, `plot_list` |
 | `ggtree.themes_scales` | `Theme`, `Scale`, `Coord`, `theme_tree`, `theme_tree2`, `theme_dendrogram`, `revts`, `xlim_tree`, `xlim_expand`, `hexpand`, `vexpand`, `new_scale_fill`, `new_scale_color`, Viridis/Brewer/gradient/manual scales |
-| `ggtree.plot` | `GGTree`, `ggtree`, `ggplot`, `ggplot_build`, `is_ggplot`, `ggsave`, `last_plot`, SVG and PNG rendering engine |
+| `ggtree.plot` | `GGTree`, `ggtree`, `ggplot`, `ggplot_build`, `is_ggplot`, `ggsave`, `last_plot`, SVG (`to_svg`), PNG (`to_png`), PDF (`to_pdf`), and interactive HTML (`to_html`, `to_interactive`) rendering engine |
+| `ggtree.export` | Interactive HTML/Jupyter widget (`InteractivePlot`, `girafe`, `render_interactive_html`) and true vector PDF export (`svg_to_pdf_bytes`, `svg_to_pdf_pure_python`) |
 | `ggtree.dataframe` | Lightweight `DataFrame`, `TblTree`, `ColumnSeries`, `Factor`, `left_join` / `full_join` / `inner_join`, `filter`, `mutate`, `select`, `arrange`, `unnest`, `read_table`, `read_csv` |

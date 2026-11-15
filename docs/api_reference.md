@@ -1,6 +1,6 @@
 # API Reference
 
-> **Navigation:** [Docs Home](index.md) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
+> **Navigation:** [Docs Home](index.md) · [Online Book](https://zhanxw.github.io/ggtree-py-book/) · [Visual Gallery](gallery.md) · [Getting Started](getting_started.md) · [Layouts & Manipulation](layouts_and_manipulation.md) · [Annotations & Compositions](annotations_and_compositions.md) · [API Reference](api_reference.md) · [R-to-Python Migration](r_to_python_migration.md) · [GitHub](https://github.com/zhanxw/ggtree.py) · [PyPI](https://pypi.org/project/ggtree-py/)
 
 All public symbols listed below are re-exported at top level (`import ggtree`) and organized into submodules.
 
@@ -10,9 +10,10 @@ All public symbols listed below are re-exported at top level (`import ggtree`) a
 - `ggplot(data=None, mapping=None, **kwargs) -> GGTree`
 - `ggplot_build(plot) -> BuiltPlot`
 - `is_ggplot(x) -> bool`
-- `ggsave(filename, plot=None, width=8, height=6, dpi=100, **kwargs) -> str`
+- `ggsave(filename, plot=None, width=8, height=6, dpi=100, device=None, interactive=True, **kwargs) -> str`
 - `last_plot() -> Optional[GGTree]`
-- `GGTree.to_svg(width=800, height=600) -> str` / `GGTree.to_png(width=800, height=600) -> bytes` / `GGTree.save(...)`
+- `GGTree.to_svg(width=800, height=600) -> str` / `GGTree.to_png(width=800, height=600) -> bytes` / `GGTree.to_pdf(width=800, height=600, page_width_pt=None, page_height_pt=None) -> bytes` / `GGTree.to_html(width=860, height=620, interactive=True, full_html=True, title=None) -> str` / `GGTree.to_interactive(...) -> InteractivePlot` / `GGTree.save(...)`
+- `girafe(ggobj=None, width_svg=8.6, height_svg=6.2, dpi=100, title=None, **kwargs) -> InteractivePlot` / `InteractivePlot` / `svg_to_pdf_bytes(svg, width=800, height=600, page_width_pt=None, page_height_pt=None) -> bytes` / `svg_to_pdf_pure_python(...) -> bytes`
 - `GGTree` operators: `+` (layer/modifier), `%` / `<<` / `@` (attach metadata `DataFrame` or swap tree), `|` (horizontal compose), `/` (vertical compose)
 
 ## Tree Parsers, Structures & Generators (`ggtree.tree`)
@@ -89,7 +90,8 @@ All public symbols listed below are re-exported at top level (`import ggtree`) a
 
 ## DataFrame & R Compatibility Helpers (`ggtree.dataframe`)
 
-- `DataFrame`, `TblTree`, `ColumnSeries`, `Factor`
+- `DataFrame`, `TblTree`, `ColumnSeries`, `Factor`, `ensure_dataframe(obj)`, `is_dataframe_like(obj)`
+- `DataFrame.to_pandas(categorical=False)`, `DataFrame.to_polars()`, `DataFrame.to_arrow()`
 - `data_frame`, `tibble`, `factor`, `read_table`, `read_csv`
 - `left_join`, `full_join`, `inner_join`, `bind_rows`, `mutate`, `filter`, `select`, `arrange`, `unnest`, `match`, `is_na`, `attr`, `set_attr`, `options`, `getOption`
 - Vector/RNG/constants: `c`, `rep`, `seq`, `seq_len`, `seq_along`, `paste`, `paste0`, `rnorm`, `runif`, `rbinom`, `sample`, `set_seed`, `LETTERS`, `letters`, `NA`, `TRUE`, `FALSE`, `NULL`

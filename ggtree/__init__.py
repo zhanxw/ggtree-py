@@ -3,7 +3,7 @@ ggtree: Grammar of Graphics for Phylogenetic Trees in Python (v4.3.2)
 Complete Python port of the R/Bioconductor ggtree package.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __r_ggtree_version__ = "4.3.2"
 
 from .dataframe import (
@@ -49,6 +49,8 @@ from .dataframe import (
     unnest,
     read_table,
     read_csv,
+    is_dataframe_like,
+    ensure_dataframe,
 )
 
 from .tree import (
@@ -420,6 +422,12 @@ from .plot import (
     last_plot,
 )
 
+from .export import (
+    InteractivePlot,
+    girafe,
+    svg_to_pdf_bytes,
+)
+
 
 # ---------------------------------------------------------------------------
 # R-namespace dot-Call Compatibility Proxies
@@ -528,6 +536,7 @@ class _Ggplot2Namespace:
     ggplot_build = staticmethod(ggplot_build)
     is_ggplot = staticmethod(is_ggplot)
     ggsave = staticmethod(ggsave)
+    girafe = staticmethod(girafe)
     rel = staticmethod(rel)
     unit = staticmethod(unit)
     margin = staticmethod(margin)

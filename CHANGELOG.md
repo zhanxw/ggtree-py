@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 (2026-11-15)
+
+- **Online Book website**: Linked the 13-chapter *treedata-book* Python edition ([`https://zhanxw.github.io/ggtree-py-book/`](https://zhanxw.github.io/ggtree-py-book/)) and 111-figure searchable gallery ([`https://zhanxw.github.io/ggtree-py-book/gallery.html`](https://zhanxw.github.io/ggtree-py-book/gallery.html)) in `pyproject.toml` (`Book` URL), `README.md`, and `docs/`.
+- **DataFrame interoperability (`pandas`, `polars`, `pyarrow`, `__dataframe__`)**: Native duck-typed input support across `%` / `<<` / `@` / `+`, `gheatmap`, `facet_plot` / `geom_facet`, `nodepie` / `nodebar`, `geom_*` layers, `ggtree()`, `tidytree` helpers, and table verbs, plus `.to_pandas()`, `.to_polars()`, and `.to_arrow()` export methods (`examples/pandas_example.py`, `tests/test_dataframe_interop.py`).
+- **Interactive HTML & Jupyter figures (`ggtree.export`)**: Added `to_html()`, `to_interactive()`, `girafe()`, and `InteractivePlot` (`_repr_html_()` `<iframe srcdoc=...>`) with pan/zoom, live search, node & heatmap/facet tile hover tooltips, click-to-highlight clades, double-click internal-node collapse toggle, and SVG/PNG download buttons.
+- **True PDF vector export**: Added `to_pdf()`, `svg_to_pdf_bytes()`, and zero-dependency pure-Python `%PDF-1.4` vector compiler `svg_to_pdf_pure_python()`, and updated `ggsave()` to support `.pdf`, `.html`, `.svg`, `.png`, `device=`, and `interactive=` (`examples/interactive_pdf_example.py`, `tests/test_export_interactive_pdf.py`).
+
 ## 0.1.2 (2026-11-14)
 
 - **Visual documentation gallery (28 figures)**: Added `docs/figures/*.png`, `docs/gallery.md`, and reproducible `docs/generate_doc_figures.py` (`120 DPI`), embedding rendered figures inline across `README.md`, `docs/index.md`, `docs/getting_started.md`, `docs/layouts_and_manipulation.md`, `docs/annotations_and_compositions.md`, and `docs/r_to_python_migration.md`.

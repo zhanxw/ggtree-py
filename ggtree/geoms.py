@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 import numpy as np
 
 from .aes import Aes, SymExpr, aes, eval_expr, eval_subset, modifyList
-from .dataframe import ColumnSeries, DataFrame, _is_scalar_na, bind_rows
+from .dataframe import ColumnSeries, DataFrame, _is_scalar_na, bind_rows, ensure_dataframe, is_dataframe_like
 from .layout import (
     adjust_cladelabel_angle,
     check_reverse,
@@ -35,7 +35,7 @@ def _extract_mapping_and_data(
     data: Any = None,
     kwargs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Aes, Any]:
-    if isinstance(mapping, DataFrame) or (callable(mapping) and not isinstance(mapping, SymExpr)):
+    if is_dataframe_like(mapping) or (callable(mapping) and not isinstance(mapping, SymExpr)):
         data, mapping = mapping, data
     if mapping is None:
         m = Aes()
@@ -71,7 +71,7 @@ class Layer(PlotModifier):
         return Layer(
             geom_type=self.geom_type,
             mapping=self.mapping.copy(),
-            data=self.data.copy() if isinstance(self.data, DataFrame) else self.data,
+            data=self.data.copy() if isinstance(self.data, DataFrame) else (ensure_dataframe(self.data) if is_dataframe_like(self.data) else self.data),
             params=dict(self.params),
             stat=self.stat,
         )
@@ -91,11 +91,11 @@ class Layer(PlotModifier):
         if self.data is None:
             df = plot_data.copy()
         elif callable(self.data) and not isinstance(self.data, SymExpr):
-            df = self.data(plot_data.copy())
+            df = ensure_dataframe(self.data(plot_data.copy()))
         elif isinstance(self.data, DataFrame):
             df = self.data.copy()
         else:
-            df = DataFrame(self.data)
+            df = ensure_dataframe(self.data)
 
         inherit_flag = self.params.get("inherit.aes", self.params.get("inherit_aes", True))
         merged_aes = plot_mapping.merge(self.mapping) if inherit_flag else self.mapping.copy()
@@ -150,6 +150,11 @@ class Layer(PlotModifier):
             val = eval_expr(df, aes_expr, extra_env=extra_env)
             if val is not None:
                 out[aes_k] = val
+                expr_key = str(aes_expr)
+                if expr_key in df._levels:
+                    out._levels[aes_k] = list(df._levels[expr_key])
+                else:
+                    out._levels.pop(aes_k, None)
 
         # Apply offset / nudge adjustments for text/tiplab/nodelab
         offset_val = self.params.get("offset", 0.0)
@@ -169,8 +174,12 @@ class Layer(PlotModifier):
                 out[pk] = [self.params[pk]] * len(out)
         if "color" in out and "colour" not in out:
             out["colour"] = out["color"]
+            if "color" in out._levels:
+                out._levels["colour"] = list(out._levels["color"])
         elif "colour" in out and "color" not in out:
             out["color"] = out["colour"]
+            if "colour" in out._levels:
+                out._levels["color"] = list(out._levels["colour"])
         if self.geom_type == "point":
             if "shape" not in out:
                 out["shape"] = [19] * len(out)
@@ -222,11 +231,19 @@ def _compute_tree_segments(
         id_to_idx = {n: i for i, n in enumerate(nodes)}
 
     color_expr = mapping.get("colour", mapping.get("color"))
+    color_levels = df._levels.get(str(color_expr)) if color_expr is not None else None
     if color_expr is not None:
         c_eval = eval_expr(df, color_expr, extra_env=extra_env)
         color_col = c_eval.tolist() if c_eval is not None else [params.get("colour", params.get("color", "black"))] * len(df)
     else:
         color_col = [params.get("colour", params.get("color", "black"))] * len(df)
+
+    def _with_color_levels(res_df: DataFrame) -> DataFrame:
+        if color_levels:
+            lvl_copy = list(color_levels)
+            res_df._levels["color"] = lvl_copy
+            res_df._levels["colour"] = list(lvl_copy)
+        return res_df
 
     lw_expr = mapping.get("linewidth", mapping.get("size"))
     default_lw = params.get("linewidth", params.get("size", 0.5))
@@ -272,7 +289,7 @@ def _compute_tree_segments(
                     "size": size_col[i], "linewidth": size_col[i],
                     "linetype": ltype_col[i], "alpha": alpha_col[i], "PANEL": "Tree",
                 })
-            return DataFrame(rows)
+            return _with_color_levels(DataFrame(rows))
 
         # Rectangular-family 2-layer stat behavior (1 row per row in df, matching StatTreeHorizontal/StatTreeVertical)
         for i, (p, n) in enumerate(zip(parents, nodes)):
@@ -297,7 +314,7 @@ def _compute_tree_segments(
                 "size": size_col[i], "linewidth": size_col[i],
                 "linetype": ltype_col[i], "alpha": alpha_col[i], "PANEL": "Tree",
             })
-        return DataFrame(rows)
+        return _with_color_levels(DataFrame(rows))
 
     for i, (p, n) in enumerate(zip(parents, nodes)):
         key = (id_col[i], p) if id_col is not None else p
@@ -335,7 +352,7 @@ def _compute_tree_segments(
                 "color": c_val, "colour": c_val, "size": s_val, "linewidth": s_val,
                 "linetype": lt_val, "alpha": al_val, "PANEL": "Tree",
             })
-    return DataFrame(rows)
+    return _with_color_levels(DataFrame(rows))
 
 
 def _compute_rootedge(df: DataFrame, mapping: Aes, params: Dict[str, Any], layout: str = "rectangular") -> DataFrame:

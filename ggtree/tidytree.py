@@ -16,9 +16,12 @@ from .dataframe import (
     Factor,
     TblTree,
     _is_scalar_na,
+    _is_series_like,
     c,
+    ensure_dataframe,
     factor,
     filter as df_filter,
+    is_dataframe_like,
     mutate as df_mutate,
     unnest as df_unnest,
 )
@@ -26,13 +29,20 @@ from .tree import Phylo, TreeData, as_phylo, as_tibble, extract_clade, getNodeNu
 
 
 def _is_ggtree_plot(x: Any) -> bool:
-    return hasattr(x, "data") and isinstance(getattr(x, "data", None), DataFrame) and hasattr(x, "layers")
+    return hasattr(x, "data") and is_dataframe_like(getattr(x, "data", None)) and hasattr(x, "layers")
 
 
-def taxa2node(data: DataFrame, taxa: Union[int, str]) -> int:
+def _to_sequence_if_series(x: Any) -> Any:
+    if _is_series_like(x):
+        return ColumnSeries(x).tolist()
+    return x
+
+
+def taxa2node(data: Any, taxa: Union[int, str]) -> int:
     """Resolve a taxon label or node ID to an integer node ID in a fortified DataFrame."""
     if isinstance(taxa, (int, np.integer)):
         return int(taxa)
+    data = ensure_dataframe(data)
     s = str(taxa)
     nodes = data["node"].tolist()
     labels = data["label"].tolist() if "label" in data else []
@@ -51,11 +61,12 @@ def nodeid(tree: Any, label: Union[str, Sequence[str]]) -> Union[int, List[Optio
     """
     if _is_ggtree_plot(tree):
         return nodeid(tree.data, label)
-    df = tree if isinstance(tree, DataFrame) else as_tibble(tree)
+    df = ensure_dataframe(tree) if is_dataframe_like(tree) else as_tibble(tree)
     labels_col = df["label"].tolist() if "label" in df else []
     nodes_col = [int(n) for n in df["node"].tolist()]
     lookup = {str(lbl): n for n, lbl in zip(nodes_col, labels_col) if not _is_scalar_na(lbl)}
 
+    label = _to_sequence_if_series(label)
     if isinstance(label, (str, int, np.integer)):
         if isinstance(label, (int, np.integer)):
             return int(label)
@@ -70,11 +81,12 @@ def nodelab(tree: Any, id: Union[int, Sequence[int]]) -> Union[Optional[str], Li
     """
     if _is_ggtree_plot(tree):
         return nodelab(tree.data, id)
-    df = tree if isinstance(tree, DataFrame) else as_tibble(tree)
+    df = ensure_dataframe(tree) if is_dataframe_like(tree) else as_tibble(tree)
     labels_col = df["label"].tolist() if "label" in df else []
     nodes_col = [int(n) for n in df["node"].tolist()]
     lookup = {n: (str(lbl) if not _is_scalar_na(lbl) else None) for n, lbl in zip(nodes_col, labels_col)}
 
+    id = _to_sequence_if_series(id)
     if isinstance(id, (int, np.integer)):
         return lookup.get(int(id), None)
     return [lookup.get(int(x), None) for x in id]
@@ -86,7 +98,8 @@ def rootnode(x: Any) -> Any:
     """
     if _is_ggtree_plot(x):
         return rootnode(x.data)
-    if isinstance(x, DataFrame):
+    if is_dataframe_like(x):
+        x = ensure_dataframe(x)
         nodes = x["node"].tolist()
         parents = x["parent"].tolist()
         for i, (n, p) in enumerate(zip(nodes, parents)):
@@ -118,7 +131,7 @@ def isTip(x: Any, node: Optional[Union[int, Sequence[int]]] = None) -> Any:
     """Check whether node(s) are tips."""
     if _is_ggtree_plot(x):
         return isTip(x.data, node)
-    df = x if isinstance(x, DataFrame) else as_tibble(x)
+    df = ensure_dataframe(x) if is_dataframe_like(x) else as_tibble(x)
     parents = set(df["parent"].tolist())
     nodes = [int(n) for n in df["node"].tolist()]
     if "isTip" in df:
@@ -127,13 +140,15 @@ def isTip(x: Any, node: Optional[Union[int, Sequence[int]]] = None) -> Any:
         tip_map = {n: (n not in parents) for n in nodes}
     if node is None:
         return [tip_map[n] for n in nodes]
+    node = _to_sequence_if_series(node)
     if isinstance(node, (int, np.integer)):
         return tip_map.get(int(node), False)
     return [tip_map.get(int(n), False) for n in node]
 
 
-def itself(data: DataFrame, node: Union[int, str]) -> DataFrame:
+def itself(data: Any, node: Union[int, str]) -> DataFrame:
     """Return the 1-row DataFrame for 'node' (by integer ID or string label)."""
+    data = ensure_dataframe(data)
     nid = taxa2node(data, node)
     nodes = [int(n) for n in data["node"].tolist()]
     idxs = [i for i, n in enumerate(nodes) if n == nid]
@@ -147,7 +162,8 @@ def child(data: Any, node: Union[int, str]) -> Any:
     """
     if _is_ggtree_plot(data):
         return child(data.data, node)
-    if isinstance(data, DataFrame):
+    if is_dataframe_like(data):
+        data = ensure_dataframe(data)
         nid = taxa2node(data, node)
         nodes = [int(n) for n in data["node"].tolist()]
         parents = [int(p) for p in data["parent"].tolist()]
@@ -166,7 +182,8 @@ def parent(data: Any, node: Union[int, str]) -> Any:
     """
     if _is_ggtree_plot(data):
         return parent(data.data, node)
-    if isinstance(data, DataFrame):
+    if is_dataframe_like(data):
+        data = ensure_dataframe(data)
         nd_df = itself(data, node)
         if len(nd_df) == 0:
             return data._slice_rows([])
@@ -190,7 +207,8 @@ def sibling(data: Any, node: Union[int, str]) -> Any:
     """Get sibling(s) of 'node'."""
     if _is_ggtree_plot(data):
         return sibling(data.data, node)
-    if isinstance(data, DataFrame):
+    if is_dataframe_like(data):
+        data = ensure_dataframe(data)
         nid = taxa2node(data, node)
         p_df = parent(data, nid)
         if len(p_df) == 0:
@@ -215,7 +233,8 @@ def ancestor(data: Any, node: Union[int, str]) -> Any:
     """
     if _is_ggtree_plot(data):
         return ancestor(data.data, node)
-    if isinstance(data, DataFrame):
+    if is_dataframe_like(data):
+        data = ensure_dataframe(data)
         nd_df = itself(data, node)
         if len(nd_df) == 0:
             return data._slice_rows([])
@@ -260,6 +279,7 @@ def offspring(
     if _is_ggtree_plot(data):
         return offspring(data.data, node, tiponly=tiponly, self_include=self_include, type=type, **kwargs)
 
+    node = _to_sequence_if_series(node)
     if isinstance(node, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(node, (str, bytes)):
         node_list = list(node)
         if len(node_list) == 1:
@@ -269,7 +289,8 @@ def offspring(
             for n in node_list
         }
 
-    if isinstance(data, DataFrame):
+    if is_dataframe_like(data):
+        data = ensure_dataframe(data)
         nid = taxa2node(data, node)  # type: ignore[arg-type]
         nodes = [int(n) for n in data["node"].tolist()]
         parents = [int(p) for p in data["parent"].tolist()]
@@ -320,11 +341,13 @@ def offspring(
     return [int(n) for n in sub["node"].tolist()]
 
 
-def offspring_bulk(data: DataFrame, nodes: Sequence[Union[int, str]], self_include: bool = False) -> List[List[int]]:
+def offspring_bulk(data: Any, nodes: Sequence[Union[int, str]], self_include: bool = False) -> List[List[int]]:
     """
     Bulk offspring traversal returning a list of integer node ID vectors for each node in 'nodes'
     (exact port of ggtree's internal offspring_bulk in R/utilities.R).
     """
+    data = ensure_dataframe(data)
+    nodes = _to_sequence_if_series(nodes)
     node_col = [int(n) for n in data["node"].tolist()]
     parent_col = [int(p) for p in data["parent"].tolist()]
     rn = getRoot(data)
@@ -405,20 +428,23 @@ def MRCA(data: Any, node1: Any = None, node2: Any = None, *more_nodes: Any, **kw
         res_df = MRCA(data.data, node1, node2, *more_nodes)
         return int(res_df["node"][0]) if len(res_df) > 0 else None
 
-    if not isinstance(data, DataFrame):
+    if not is_dataframe_like(data):
         df = as_tibble(data)
         res_df = MRCA(df, node1, node2, *more_nodes)
         return int(res_df["node"][0]) if len(res_df) > 0 else None
+
+    data = ensure_dataframe(data)
 
     # Gather all target nodes
     targets: List[Union[int, str]] = []
     for arg in (node1, node2, *more_nodes):
         if arg is None:
             continue
-        if isinstance(arg, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(arg, (str, bytes)):
-            targets.extend(list(arg))
+        arg_seq = _to_sequence_if_series(arg)
+        if isinstance(arg_seq, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(arg_seq, (str, bytes)):
+            targets.extend(list(arg_seq))
         else:
-            targets.append(arg)
+            targets.append(arg_seq)
 
     if len(targets) == 0:
         raise ValueError("MRCA requires at least one node")
@@ -564,18 +590,20 @@ def groupOTU(
         phy.attrs[group_name] = factor(vals)
         return phy
 
-    if isinstance(data, DataFrame):
-        out = data.copy()
+    if is_dataframe_like(data):
+        out = ensure_dataframe(data).copy()
         out[group_name] = None  # Delete existing column if present
-        if isinstance(_node, dict):
-            for k, v in _node.items():
-                v_list = list(v) if isinstance(v, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(v, (str, bytes)) else [v]
+        node_seq = _to_sequence_if_series(_node)
+        if isinstance(node_seq, dict):
+            for k, v in node_seq.items():
+                v_seq = _to_sequence_if_series(v)
+                v_list = list(v_seq) if isinstance(v_seq, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(v_seq, (str, bytes)) else [v_seq]
                 out = _groupOTU_tbl_tree_item(out, v_list, focus_label=k, group_name=group_name, overlap=overlap, connect=connect)
-        elif isinstance(_node, (list, tuple)) and len(_node) > 0 and isinstance(_node[0], (list, tuple, np.ndarray)):
-            for idx, v in enumerate(_node, 1):
-                out = _groupOTU_tbl_tree_item(out, list(v), focus_label=idx, group_name=group_name, overlap=overlap, connect=connect)
+        elif isinstance(node_seq, (list, tuple)) and len(node_seq) > 0 and isinstance(_to_sequence_if_series(node_seq[0]), (list, tuple, np.ndarray)):
+            for idx, v in enumerate(node_seq, 1):
+                out = _groupOTU_tbl_tree_item(out, list(_to_sequence_if_series(v)), focus_label=idx, group_name=group_name, overlap=overlap, connect=connect)
         else:
-            v_list = list(_node) if isinstance(_node, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(_node, (str, bytes)) else [_node]
+            v_list = list(node_seq) if isinstance(node_seq, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(node_seq, (str, bytes)) else [node_seq]
             out = _groupOTU_tbl_tree_item(out, v_list, focus_label=None, group_name=group_name, overlap=overlap, connect=connect)
 
         rn = getRoot(out)
@@ -626,19 +654,20 @@ def groupClade(
         phy.attrs[group_name] = factor(df_sorted[group_name].tolist())
         return phy
 
-    if isinstance(data, DataFrame):
-        out = data.copy()
+    if is_dataframe_like(data):
+        out = ensure_dataframe(data).copy()
         n = len(out)
         nodes_col = [int(nd) for nd in out["node"].tolist()]
         id_to_row = {nd: idx for idx, nd in enumerate(nodes_col)}
         foc: List[Any] = [0] * n
 
-        if isinstance(_node, dict):
-            node_items = list(_node.items())
-        elif isinstance(_node, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(_node, (str, bytes)):
-            node_items = [(None, x) for x in _node]
+        node_seq = _to_sequence_if_series(_node)
+        if isinstance(node_seq, dict):
+            node_items = list(node_seq.items())
+        elif isinstance(node_seq, (list, tuple, np.ndarray, ColumnSeries)) and not isinstance(node_seq, (str, bytes)):
+            node_items = [(None, x) for x in node_seq]
         else:
-            node_items = [(None, _node)]
+            node_items = [(None, node_seq)]
 
         if len(node_items) == 1 and node_items[0][0] is None:
             nid = taxa2node(out, node_items[0][1])
