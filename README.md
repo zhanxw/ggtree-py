@@ -6,13 +6,13 @@
 
 | 12+ Tree Layouts | BEAST Time Tree + `gheatmap()` |
 | :---: | :---: |
-| [![12+ Phylogenetic Layouts](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/01_all_layouts_grid.png)](https://zhanxw.github.io/ggtree.py/layouts_and_manipulation.html) | [![FluA H3 BEAST + Genotype Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/05_beast_gheatmap.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html) |
+| [![12+ Phylogenetic Layouts](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/01_all_layouts_grid.png)](https://zhanxw.github.io/ggtree-py/layouts_and_manipulation.html) | [![FluA H3 BEAST + Genotype Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/05_beast_gheatmap.png)](https://zhanxw.github.io/ggtree-py/annotations_and_compositions.html) |
 | **Circular Dual-Scale Heatmaps** | **Multi-Panel Facets (`geom_col` + Dot Plot)** |
-| [![Circular Tree with Dual Heatmaps](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/06_circular_stacked_heatmap.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html#multiple-fillcolor-scales-new_scale_fill-new_scale_color) | [![Multi-Panel Facets](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/ac_07_multifacet_panels.png)](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html#3-faceted-data-panels-geom_facet--facet_plot) |
+| [![Circular Tree with Dual Heatmaps](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/06_circular_stacked_heatmap.png)](https://zhanxw.github.io/ggtree-py/annotations_and_compositions.html#multiple-fillcolor-scales-new_scale_fill-new_scale_color) | [![Multi-Panel Facets](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/ac_07_multifacet_panels.png)](https://zhanxw.github.io/ggtree-py/annotations_and_compositions.html#3-faceted-data-panels-geom_facet--facet_plot) |
 
 📖 **Read the Online Book:** [**Data Integration, Manipulation and Visualization of Phylogenetic Trees (*ggtree-py* Edition)**](https://zhanxw.github.io/ggtree-py-book/) — 13 chapters, FAQs, API reference, and [**111 reproducible figures**](https://zhanxw.github.io/ggtree-py-book/gallery.html) with collapsible Python code.
 
-Browse all **28 rendered figures** in the [**Visual Gallery**](https://zhanxw.github.io/ggtree.py/gallery.html).
+Browse all **28 rendered figures** in the [**Visual Gallery**](https://zhanxw.github.io/ggtree-py/gallery.html).
 
 ---
 
@@ -32,8 +32,8 @@ pip install ggtree-py
 ### Local Development Install
 
 ```bash
-git clone https://github.com/zhanxw/ggtree.py.git
-cd ggtree.py
+git clone https://github.com/zhanxw/ggtree-py.git
+cd ggtree-py
 pip install -e ".[dev]"
 python3 -s -m unittest discover -s tests -v
 python3 -s examples/run_all_examples.py
@@ -70,7 +70,7 @@ gg.ggsave("annotated_tree.svg", plot=p, width=9.5, height=6.5)
 gg.ggsave("annotated_tree.png", plot=p, width=9.5, height=6.5, dpi=100)
 ```
 
-![Annotated Sample Tree](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/04_annotated_tree.png)
+![Annotated Sample Tree](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/04_annotated_tree.png)
 
 ### 2. Time-Scaled BEAST Tree + HPD Intervals + Genotype Heatmap
 
@@ -94,7 +94,7 @@ p_hm = (
 ggsave("beast_gheatmap.png", plot=p_hm, width=11, height=11, dpi=100)
 ```
 
-![FluA H3 BEAST Tree + Genotype Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/05_beast_gheatmap.png)
+![FluA H3 BEAST Tree + Genotype Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/05_beast_gheatmap.png)
 
 ### 3. Multi-Scale Circular Heatmaps (`new_scale_fill`)
 
@@ -117,7 +117,7 @@ p2 = gheatmap(p1, df2, offset=12.8, width=0.3) + scale_fill_viridis_c(option="A"
 ggsave("circular_stacked_heatmap.svg", plot=p2, width=9, height=8.5)
 ```
 
-![Circular Stacked Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/06_circular_stacked_heatmap.png)
+![Circular Stacked Heatmap](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/06_circular_stacked_heatmap.png)
 
 ### 4. Composite Plots, MSA, Facets, and Tanglegrams
 
@@ -146,9 +146,9 @@ p_tangle = ggdoubletree(ggtree(t1) + geom_tiplab(), ggtree(t2) + geom_tiplab(), 
 
 | Multiple Sequence Alignment (`msaplot`) | Phylogeny + Trait Facet (`geom_facet`) |
 | :---: | :---: |
-| ![MSA Plot](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/07_msaplot.png) | ![Facet Plot](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/08_facet_plot.png) |
+| ![MSA Plot](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/07_msaplot.png) | ![Facet Plot](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/08_facet_plot.png) |
 | **Untangled `ggdoubletree()`** | **Patchwork Grid (`\|` & `/`)** |
-| ![Tanglegram Optimization](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/ac_11_tanglegram_before_after.png) | ![Patchwork Composition](https://raw.githubusercontent.com/zhanxw/ggtree.py/main/docs/figures/14_patchwork.png) |
+| ![Tanglegram Optimization](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/ac_11_tanglegram_before_after.png) | ![Patchwork Composition](https://raw.githubusercontent.com/zhanxw/ggtree-py/main/docs/figures/14_patchwork.png) |
 
 ---
 
@@ -171,15 +171,15 @@ p_tangle = ggdoubletree(ggtree(t1) + geom_tiplab(), ggtree(t2) + geom_tiplab(), 
 - 📖 **[Online Book (*treedata-book* Python Edition)](https://zhanxw.github.io/ggtree-py-book/)** — Complete 13-chapter interactive book (Parts I–IV, FAQ Appendix A, API Appendix B)
 - 🖼️ **[Online Book Figure Gallery & Master Index (111 Figures)](https://zhanxw.github.io/ggtree-py-book/gallery.html)** — Searchable gallery with collapsible Python code for every figure
 
-Full guides and reference pages are also hosted on [**GitHub Pages**](https://zhanxw.github.io/ggtree.py/) and in [`docs/`](https://github.com/zhanxw/ggtree.py/tree/main/docs):
+Full guides and reference pages are also hosted on [**GitHub Pages**](https://zhanxw.github.io/ggtree-py/) and in [`docs/`](https://github.com/zhanxw/ggtree-py/tree/main/docs):
 
-- [Documentation Index](https://zhanxw.github.io/ggtree.py/) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/index.md))
-- [Visual Gallery (28 Figures)](https://zhanxw.github.io/ggtree.py/gallery.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/gallery.md))
-- [Getting Started & Tree Data I/O](https://zhanxw.github.io/ggtree.py/getting_started.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/getting_started.md))
-- [Layouts & Tree Manipulation](https://zhanxw.github.io/ggtree.py/layouts_and_manipulation.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/layouts_and_manipulation.md))
-- [Annotations, Heatmaps, Facets & Multi-Tree Compositions](https://zhanxw.github.io/ggtree.py/annotations_and_compositions.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/annotations_and_compositions.md))
-- [API Reference](https://zhanxw.github.io/ggtree.py/api_reference.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/api_reference.md))
-- [R-to-Python Migration Guide](https://zhanxw.github.io/ggtree.py/r_to_python_migration.html) ([Markdown](https://github.com/zhanxw/ggtree.py/blob/main/docs/r_to_python_migration.md))
+- [Documentation Index](https://zhanxw.github.io/ggtree-py/) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/index.md))
+- [Visual Gallery (28 Figures)](https://zhanxw.github.io/ggtree-py/gallery.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/gallery.md))
+- [Getting Started & Tree Data I/O](https://zhanxw.github.io/ggtree-py/getting_started.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/getting_started.md))
+- [Layouts & Tree Manipulation](https://zhanxw.github.io/ggtree-py/layouts_and_manipulation.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/layouts_and_manipulation.md))
+- [Annotations, Heatmaps, Facets & Multi-Tree Compositions](https://zhanxw.github.io/ggtree-py/annotations_and_compositions.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/annotations_and_compositions.md))
+- [API Reference](https://zhanxw.github.io/ggtree-py/api_reference.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/api_reference.md))
+- [R-to-Python Migration Guide](https://zhanxw.github.io/ggtree-py/r_to_python_migration.html) ([Markdown](https://github.com/zhanxw/ggtree-py/blob/main/docs/r_to_python_migration.md))
 
 ---
 
@@ -197,4 +197,4 @@ If you use `ggtree` in published research, please cite the original papers:
 
 ## License
 
-Artistic License 2.0 — see [LICENSE](https://github.com/zhanxw/ggtree.py/blob/main/LICENSE).
+Artistic License 2.0 — see [LICENSE](https://github.com/zhanxw/ggtree-py/blob/main/LICENSE).

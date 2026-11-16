@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 (2026-11-16)
+
+- **Repository & documentation URL unification**: Renamed the GitHub repository from `zhanxw/ggtree.py` to [`zhanxw/ggtree-py`](https://github.com/zhanxw/ggtree-py) and updated GitHub Pages documentation URLs to [`https://zhanxw.github.io/ggtree-py/`](https://zhanxw.github.io/ggtree-py/) across `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, and `docs/`.
+
 ## 0.1.3 (2026-11-15)
 
 - **Online Book website**: Linked the 13-chapter *treedata-book* Python edition ([`https://zhanxw.github.io/ggtree-py-book/`](https://zhanxw.github.io/ggtree-py-book/)) and 111-figure searchable gallery ([`https://zhanxw.github.io/ggtree-py-book/gallery.html`](https://zhanxw.github.io/ggtree-py-book/gallery.html)) in `pyproject.toml` (`Book` URL), `README.md`, and `docs/`.
