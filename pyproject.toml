@@ -4,15 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ggtree-py"
-version = "0.1.4"
+version = "0.1.5"
 description = "Grammar of Graphics for Phylogenetic Trees in Python — an R-compatible port of Bioconductor ggtree."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Artistic-2.0"
 authors = [
-    {name = "Guangchuang Yu"},
-    {name = "Tommy Tsan-Yuk Lam"},
-    {name = "Shuangbin Xu"},
+    {name = "zhanxw"},
 ]
 keywords = [
     "phylogenetics",

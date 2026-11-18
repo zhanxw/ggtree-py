@@ -3,7 +3,7 @@ ggtree: Grammar of Graphics for Phylogenetic Trees in Python (v4.3.2)
 Complete Python port of the R/Bioconductor ggtree package.
 """
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 __r_ggtree_version__ = "4.3.2"
 
 from .dataframe import (
